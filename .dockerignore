@@ -1,0 +1,19 @@
+# Rust build artifacts — can be huge, never needed in the image
+server/target/
+
+# Local config — secrets must never be baked into an image
+server/.env
+
+# SQLite database files — data lives on the fly.io volume, not in the image
+*.db
+*.db-shm
+*.db-wal
+
+# Git history
+.git/
+.gitignore
+
+# Editor and OS noise
+.DS_Store
+*.swp
+*.swo

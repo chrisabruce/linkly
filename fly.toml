@@ -1,0 +1,68 @@
+# Linkly — fly.io configuration
+# Docs: https://fly.io/docs/reference/configuration/
+#
+# Quick-start:
+#   1. Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+#   2. fly auth login
+#   3. fly launch --no-deploy        # registers the app, skips first deploy
+#   4. fly volumes create linkly_data --region ord --size 1
+#   5. fly secrets set ADMIN_PASSWORD="your-strong-password"
+#   6. fly secrets set BASE_URL="https://<your-app-name>.fly.dev"
+#   7. fly deploy
+
+# ── App identity ────────────────────────────────────────────────────────────
+# Change this to your chosen app name. It must be globally unique on fly.io.
+# Whatever you pick here becomes the default URL: <app>.fly.dev
+app            = "linkly"
+primary_region = "ord"   # Chicago — change to the region closest to your team
+                          # Full list: https://fly.io/docs/reference/regions/
+
+# ── Build ───────────────────────────────────────────────────────────────────
+[build]
+  dockerfile = "Dockerfile"
+
+# ── Environment ─────────────────────────────────────────────────────────────
+# Non-secret runtime config. Sensitive values (ADMIN_PASSWORD, BASE_URL) are
+# set with `fly secrets set` so they never appear in this file or the image.
+[env]
+  HOST         = "0.0.0.0"
+  PORT         = "8080"
+  DATABASE_URL = "sqlite:/data/linkly.db"
+  RUST_LOG     = "linkly=info,tower_http=info"
+  # SESSION_DURATION_HOURS = "24"   # uncomment to override
+
+# ── Persistent storage ───────────────────────────────────────────────────────
+# SQLite needs a volume so the database survives deploys and restarts.
+# Create it before the first deploy:
+#   fly volumes create linkly_data --region ord --size 1
+#
+# IMPORTANT: keep min_machines_running = 1 (below) so only one machine ever
+# runs at a time. SQLite does not support multiple concurrent writers.
+[[mounts]]
+  source      = "linkly_data"
+  destination = "/data"
+
+# ── HTTP service ─────────────────────────────────────────────────────────────
+[http_service]
+  internal_port        = 8080
+  force_https          = true
+  auto_start_machines  = true
+  auto_stop_machines   = "stop"
+  # Keep at least one machine warm so redirects are instant.
+  # Set to 0 if you don't mind a cold-start delay and want to save money.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval     = "30s"
+    method       = "GET"
+    path         = "/health"
+    timeout      = "5s"
+
+# ── Machine size ─────────────────────────────────────────────────────────────
+# 256 MB is plenty for the binary + SQLite + a modest amount of traffic.
+# Bump to 512 MB if you start seeing OOM restarts under heavy load.
+[[vm]]
+  cpu_kind = "shared"
+  cpus     = 1
+  memory   = "256mb"

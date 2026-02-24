@@ -107,6 +107,8 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Root redirect
         .route("/", get(handlers::admin::index))
+        // Fly.io health check — returns 200 OK with no auth required
+        .route("/health", get(|| async { axum::http::StatusCode::OK }))
         // Admin panel (all under /admin/*)
         .nest("/admin", admin_router)
         // Short-link redirect — must come LAST so /admin/* takes priority

@@ -137,6 +137,101 @@ The `X-Forwarded-For` header is important — Linkly reads it to get the real vi
 
 ---
 
+## Deploying to fly.io
+
+fly.io is a good fit for Linkly — you get a real public URL with HTTPS out of the box, a persistent volume for the database, and the whole thing runs on their smallest shared VM for a few dollars a month.
+
+**Prerequisites**
+
+- A [fly.io account](https://fly.io)
+- The `flyctl` CLI: `curl -L https://fly.io/install.sh | sh`
+
+**1. Log in**
+
+```sh
+fly auth login
+```
+
+**2. Register the app**
+
+Run this from the root of the repo (where `fly.toml` lives). The `--no-deploy` flag registers the app name without trying to build anything yet.
+
+```sh
+fly launch --no-deploy
+```
+
+When asked if you want to tweak the settings, say yes and set your app name — this becomes the subdomain, e.g. `my-linkly.fly.dev`. Then open `fly.toml` and update the `app` and `primary_region` fields to match.
+
+**3. Create the persistent volume**
+
+Linkly uses SQLite, so the database file needs to survive deploys. This creates a 1 GB volume (more than enough for years of click data):
+
+```sh
+fly volumes create linkly_data --region ord --size 1
+```
+
+Replace `ord` with whatever region you set in `fly.toml`.
+
+**4. Set your secrets**
+
+These are stored encrypted on fly.io and injected at runtime — they never appear in the image or in `fly.toml`:
+
+```sh
+fly secrets set ADMIN_PASSWORD="your-strong-password-here"
+fly secrets set BASE_URL="https://your-app-name.fly.dev"
+```
+
+If you're using a custom domain instead of `.fly.dev`, set `BASE_URL` to that instead.
+
+**5. Deploy**
+
+```sh
+fly deploy
+```
+
+The first build will take a few minutes while Rust compiles everything. Subsequent deploys are faster because Docker layers are cached on fly's build machines.
+
+**6. Open it**
+
+```sh
+fly open
+```
+
+Or just navigate to `https://your-app-name.fly.dev` in your browser.
+
+---
+
+**Custom domain**
+
+If you want `go.yourcompany.com` instead of a `.fly.dev` URL:
+
+```sh
+fly certs add go.yourcompany.com
+```
+
+fly.io will give you a DNS record to add. Once DNS propagates and the certificate issues, update your `BASE_URL` secret:
+
+```sh
+fly secrets set BASE_URL="https://go.yourcompany.com"
+fly deploy
+```
+
+---
+
+**Viewing logs**
+
+```sh
+fly logs
+```
+
+---
+
+**A note on scaling**
+
+Keep Linkly at exactly one machine. SQLite does not support multiple concurrent writers, so running two instances at once will cause database errors. The `fly.toml` is already configured with `min_machines_running = 1` to keep one machine warm at all times and prevent cold-start delays on redirects.
+
+---
+
 ## Running as a system service
 
 **systemd (Linux)**
