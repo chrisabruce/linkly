@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}
+    Login
+{% endblock %}
+{% block nav_extra %}{% endblock %}
+{% block content %}
+    <div style="max-width: 22rem; margin: 4rem auto;">
+        <article>
+            <header>
+                <hgroup>
+                    <h2>
+                        🔗 Link
+                        <span style="color:#38bdf8;">ly</span>
+                    </h2>
+                    <p>Sign in to manage your short links</p>
+                </hgroup>
+            </header>
+            {% if let Some(err) = error %}
+                <div class="flash error">{{ err }}</div>
+            {% endif %}
+            <form method="POST" action="/admin/login">
+                <label for="password">
+                    Admin Password
+                    <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+          autofocus
+          required
+        />
+                </label>
+                <button type="submit" style="width:100%;">Sign in</button>
+            </form>
+        </article>
+    </div>
+{% endblock %}

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>
+            {% block title %}
+                Linkly
+            {% endblock %}
+            — Linkly
+        </title>
+        <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+  />
+        <style>
+    /* ── Layout ─────────────────────────────────────────── */
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main.container {
+      flex: 1;
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    /* ── Nav ────────────────────────────────────────────── */
+    nav.top-nav {
+      background: var(--pico-color-slate-900, #1e293b);
+      padding: 0 var(--pico-spacing);
+    }
+    nav.top-nav a,
+    nav.top-nav strong {
+      color: #f8fafc;
+      text-decoration: none;
+    }
+    nav.top-nav a:hover {
+      color: var(--pico-primary-hover);
+      text-decoration: none;
+    }
+    nav.top-nav .brand {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    nav.top-nav .brand span.dot {
+      color: #38bdf8;
+    }
+    nav.top-nav ul {
+      margin: 0;
+    }
+
+    /* ── Flash messages ─────────────────────────────────── */
+    .flash {
+      border-radius: var(--pico-border-radius);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    .flash.success {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+    .flash.error {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+
+    /* ── Tables ─────────────────────────────────────────── */
+    .table-scroll {
+      overflow-x: auto;
+    }
+    table th {
+      white-space: nowrap;
+    }
+    td.url-cell {
+      max-width: 26rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    td .badge {
+      font-size: 0.75rem;
+      padding: 0.2em 0.55em;
+      border-radius: 999px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    td .badge.active   { background: #dcfce7; color: #15803d; }
+    td .badge.inactive { background: #f3f4f6; color: #6b7280; }
+
+    /* ── Short-link display ─────────────────────────────── */
+    .short-link {
+      font-family: var(--pico-font-family-monospace, monospace);
+      font-size: 0.88rem;
+      color: var(--pico-primary);
+    }
+
+    /* ── Stats cards ────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--pico-card-background-color);
+      border: 1px solid var(--pico-card-border-color);
+      border-radius: var(--pico-border-radius);
+      padding: 1.2rem 1rem;
+      text-align: center;
+    }
+    .stat-card .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--pico-primary);
+    }
+    .stat-card .stat-label {
+      font-size: 0.78rem;
+      color: var(--pico-muted-color);
+      margin-top: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Breakdown tables ───────────────────────────────── */
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .breakdown-card {
+      background: var(--pico-card-background-color);
+      border: 1px solid var(--pico-card-border-color);
+      border-radius: var(--pico-border-radius);
+      padding: 1rem;
+    }
+    .breakdown-card h4 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--pico-muted-color);
+    }
+    .breakdown-card .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.45rem;
+      font-size: 0.85rem;
+    }
+    .breakdown-card .bar-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .breakdown-card .bar-count {
+      font-variant-numeric: tabular-nums;
+      color: var(--pico-muted-color);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .breakdown-card .bar-track {
+      width: 100%;
+      height: 0.35rem;
+      background: var(--pico-card-sectioning-background-color, #f1f5f9);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+    }
+    .breakdown-card .bar-fill {
+      height: 100%;
+      background: var(--pico-primary);
+      border-radius: 999px;
+    }
+
+    /* ── Clicks table ───────────────────────────────────── */
+    .clicks-table td {
+      font-size: 0.82rem;
+      vertical-align: middle;
+    }
+    .clicks-table .ts {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      color: var(--pico-muted-color);
+    }
+    .clicks-table .ip {
+      font-family: var(--pico-font-family-monospace, monospace);
+      font-size: 0.78rem;
+    }
+
+    /* ── Form inside card ───────────────────────────────── */
+    article.form-card {
+      margin-bottom: 2rem;
+    }
+    article.form-card form {
+      margin-bottom: 0;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    @media (max-width: 48rem) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .form-row label {
+      margin-bottom: 0;
+    }
+
+    /* ── Delete button ──────────────────────────────────── */
+    button.delete-btn {
+      padding: 0.3em 0.7em;
+      font-size: 0.8rem;
+      background: transparent;
+      border: 1px solid var(--pico-del-color, #dc2626);
+      color: var(--pico-del-color, #dc2626);
+      border-radius: var(--pico-border-radius);
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    button.delete-btn:hover {
+      background: #fee2e2;
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    footer.site-footer {
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--pico-muted-color);
+      padding: 1rem;
+      border-top: 1px solid var(--pico-card-border-color);
+    }
+  </style>
+    </head>
+    <body>
+        <nav class="top-nav">
+            <div class="container">
+                <ul>
+                    <li>
+                        <a href="/admin/dashboard" class="brand">
+                            🔗 Link
+                            <span class="dot">ly</span>
+                        </a>
+                    </li>
+                </ul>
+                <ul>
+                    {% block nav_extra %}
+                        <li>
+                            <a href="/admin/dashboard">Dashboard</a>
+                        </li>
+                        <li>
+                            <a href="/admin/logout">Log out</a>
+                        </li>
+                    {% endblock %}
+                </ul>
+            </div>
+        </nav>
+        <main class="container">
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="site-footer">Linkly — internal URL shortener</footer>
+    </body>
+</html>

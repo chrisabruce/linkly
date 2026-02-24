@@ -1,0 +1,61 @@
+[package]
+name = "linkly"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "linkly"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["macros", "form"] }
+axum-extra = { version = "0.9", features = ["cookie"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace"] }
+
+# Database
+sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls", "chrono", "migrate"] }
+
+# Templates
+askama = { version = "0.12", features = ["with-axum"] }
+askama_axum = "0.4"
+
+# Config
+dotenvy = "0.15"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+
+# Caching
+dashmap = "5"
+
+# IDs
+uuid = { version = "1", features = ["v4"] }
+
+# Random (short code generation)
+rand = "0.8"
+
+# User-agent parsing
+woothee = "0.13"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Cookie time support (required by axum-extra cookie max_age)
+time = "0.3"
+
+# Async trait support (required because axum-core uses #[async_trait] on FromRequestParts)
+async-trait = "0.1"
+
+# HTTP client for IP geolocation lookups (background task only, never on redirect hot path)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

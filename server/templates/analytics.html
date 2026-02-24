@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}
+    Analytics —
+    {{ summary.link.short_code }}
+{% endblock %}
+{% block content %}
+    <p style="margin-bottom:0.25rem;">
+        <a href="/admin/dashboard">← Back to dashboard</a>
+    </p>
+    <hgroup style="margin-bottom:1.5rem;">
+        <h2 style="margin-bottom:0.25rem;">
+            {% if let Some(t) = summary.link.title %}
+                {{ t }}
+            {% else %}
+                {{ summary.link.short_code }}
+            {% endif %}
+        </h2>
+        <p style="margin:0;">
+            <a class="short-link" href="/{{ summary.link.short_code }}" target="_blank" rel="noopener">{{ short_url }}</a>
+            &nbsp;
+            →
+            &nbsp;
+            <span style="color:var(--pico-muted-color); font-size:0.88rem; word-break:break-all;">{{ summary.link.original_url }}</span>
+        </p>
+        {% if let Some(desc) = summary.link.description %}
+            <p style="margin:0.4rem 0 0 0; font-size:0.88rem; color:var(--pico-muted-color); font-style:italic;">{{ desc }}</p>
+        {% endif %}
+    </hgroup>
+    <!-- ── Stat cards ──────────────────────────────────────────────────────── -->
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ summary.total_clicks }}</div>
+            <div class="stat-label">Total Clicks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ summary.unique_ips }}</div>
+            <div class="stat-label">Unique IPs</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ summary.link.created_at.format("%b %d") }}</div>
+            <div class="stat-label">Created</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">
+                {% if summary.link.is_active %}
+                    ✓
+                {% else %}
+                    ✕
+                {% endif %}
+            </div>
+            <div class="stat-label">
+                {% if summary.link.is_active %}
+                    Active
+                {% else %}
+                    Inactive
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- ── Breakdown cards ─────────────────────────────────────────────────── -->
+    <div class="breakdown-grid">
+        <!-- Browsers -->
+        <div class="breakdown-card">
+            <h4>Browsers</h4>
+            {% if top_browsers.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+            {% else %}
+                {% for (name, count, pct) in top_browsers %}
+                    <div class="bar-row">
+                        <span class="bar-label">{{ name }}</span>
+                        <span class="bar-count">{{ count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{{ pct }}%;">
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <!-- Operating Systems -->
+        <div class="breakdown-card">
+            <h4>Operating Systems</h4>
+            {% if top_os.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+            {% else %}
+                {% for (name, count, pct) in top_os %}
+                    <div class="bar-row">
+                        <span class="bar-label">{{ name }}</span>
+                        <span class="bar-count">{{ count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{{ pct }}%;">
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <!-- Devices -->
+        <div class="breakdown-card">
+            <h4>Devices</h4>
+            {% if top_devices.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+            {% else %}
+                {% for (name, count, pct) in top_devices %}
+                    <div class="bar-row">
+                        <span class="bar-label">{{ name }}</span>
+                        <span class="bar-count">{{ count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{{ pct }}%;">
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <!-- Top Referrers -->
+        <div class="breakdown-card">
+            <h4>Top Referrers</h4>
+            {% if top_referers.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No referrer data yet.</p>
+            {% else %}
+                {% for (name, count, pct) in top_referers %}
+                    <div class="bar-row">
+                        <span class="bar-label" title="{{ name }}">{{ name }}</span>
+                        <span class="bar-count">{{ count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{{ pct }}%;">
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <!-- Countries -->
+        <div class="breakdown-card">
+            <h4>Countries</h4>
+            {% if top_countries.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No location data yet.</p>
+            {% else %}
+                {% for (name, count, pct) in top_countries %}
+                    <div class="bar-row">
+                        <span class="bar-label">{{ name }}</span>
+                        <span class="bar-count">{{ count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{{ pct }}%;">
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    <!-- ── Recent clicks table ─────────────────────────────────────────────── -->
+    <h3 style="margin-bottom:1rem;">
+        Click History
+        <small style="font-weight:400; font-size:0.8rem; color:var(--pico-muted-color);">
+            (most recent
+            {{ summary.clicks.len() }}
+            events)
+        </small>
+    </h3>
+    {% if summary.clicks.is_empty() %}
+        <p style="color:var(--pico-muted-color); text-align:center; padding:3rem 0;">No clicks recorded yet.</p>
+    {% else %}
+        <div class="table-scroll">
+            <table class="clicks-table">
+                <thead>
+                    <tr>
+                        <th>Time (UTC)</th>
+                        <th>IP Address</th>
+                        <th>Location</th>
+                        <th>Browser</th>
+                        <th>OS</th>
+                        <th>Device</th>
+                        <th>Referrer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for click in summary.clicks %}
+                        <tr>
+                            <td class="ts">{{ click.clicked_at.format("%Y-%m-%d %H:%M:%S") }}</td>
+                            <td class="ip">
+                                {% if let Some(ip) = click.ip_address %}
+                                    {{ ip }}
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% let has_country = click.country.is_some() %}
+                                {% let has_region  = click.region.is_some() %}
+                                {% let has_city    = click.city.is_some() %}
+                                {% if has_country || has_region || has_city %}
+                                    <span style="font-size:0.82rem;">
+                                        {% if let Some(city) = click.city %}
+                                            {{ city }}
+                                            {% if has_region || has_country %}
+                                                ,
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if let Some(region) = click.region %}
+                                            {{ region }}
+                                            {% if has_country %}
+                                                ,
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if let Some(country) = click.country %}
+                                            {{ country }}
+                                        {% endif %}
+                                    </span>
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if let Some(b) = click.browser %}
+                                    {{ b }}
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if let Some(o) = click.os %}
+                                    {{ o }}
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if let Some(d) = click.device_type %}
+                                    {{ d }}
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="url-cell">
+                                {% if let Some(r) = click.referer %}
+                                    <span title="{{ r }}">{{ r }}</span>
+                                {% else %}
+                                    <span style="color:var(--pico-muted-color);">direct</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock %}
