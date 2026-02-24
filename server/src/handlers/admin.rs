@@ -64,8 +64,15 @@ pub struct CreateLinkForm {
 // ── Handlers ───────────────────────────────────────────────────────────────
 
 /// GET /
-/// Redirect root to the admin dashboard.
-pub async fn index() -> Redirect {
+/// Redirect root visitors to the configured ROOT_REDIRECT_URL (e.g. the
+/// studio's public website).  Admins must navigate directly to /admin.
+pub async fn index(State(state): State<Arc<AppState>>) -> Redirect {
+    Redirect::to(&state.config.root_redirect_url)
+}
+
+/// GET /admin
+/// Redirect /admin to /admin/dashboard.
+pub async fn admin_index() -> Redirect {
     Redirect::to("/admin/dashboard")
 }
 

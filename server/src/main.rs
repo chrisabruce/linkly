@@ -90,10 +90,7 @@ async fn main() -> anyhow::Result<()> {
     // ── Router ─────────────────────────────────────────────────────────────
     let admin_router = Router::new()
         // Root of /admin → dashboard (or login redirect via AuthUser)
-        .route(
-            "/",
-            get(|| async { axum::response::Redirect::to("/admin/dashboard") }),
-        )
+        .route("/", get(handlers::admin::admin_index))
         .route(
             "/login",
             get(handlers::admin::login_page).post(handlers::admin::login),
@@ -105,9 +102,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/links/:id/analytics", get(handlers::admin::analytics));
 
     let app = Router::new()
-        // Root redirect
+        // Root → redirect visitors to the configured ROOT_REDIRECT_URL
         .route("/", get(handlers::admin::index))
-        // Fly.io health check — returns 200 OK with no auth required
+        // Health check — returns 200 OK with no auth required
         .route("/health", get(|| async { axum::http::StatusCode::OK }))
         // Admin panel (all under /admin/*)
         .nest("/admin", admin_router)

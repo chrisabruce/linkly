@@ -4,7 +4,7 @@ server/target/
 # Local config — secrets must never be baked into an image
 server/.env
 
-# SQLite database files — data lives on the fly.io volume, not in the image
+# SQLite database files — data lives on a persistent volume, not in the image
 *.db
 *.db-shm
 *.db-wal

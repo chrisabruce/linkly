@@ -20,6 +20,11 @@ pub struct AppConfig {
 
     /// How many hours an admin session token remains valid
     pub session_duration_hours: u64,
+
+    /// URL to redirect visitors to when they hit the root path ("/").
+    /// Defaults to "https://secedastudios.com".
+    /// Set ROOT_REDIRECT_URL in the environment to override.
+    pub root_redirect_url: String,
 }
 
 impl AppConfig {
@@ -47,6 +52,11 @@ impl AppConfig {
             .trim_end_matches('/')
             .to_owned();
 
+        let root_redirect_url = std::env::var("ROOT_REDIRECT_URL")
+            .unwrap_or_else(|_| "https://secedastudios.com".into())
+            .trim_end_matches('/')
+            .to_owned();
+
         Ok(Self {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite:./linkly.db".into()),
@@ -55,6 +65,7 @@ impl AppConfig {
             port,
             base_url,
             session_duration_hours,
+            root_redirect_url,
         })
     }
 }

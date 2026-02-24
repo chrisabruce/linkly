@@ -22,7 +22,7 @@ WORKDIR /app
 COPY --from=builder /app/target/release/linkly /app/linkly
 
 # The data directory is where the SQLite database lives.
-# On fly.io this path is backed by a persistent volume.
+# Mount a persistent volume here to survive container restarts.
 RUN mkdir -p /data
 
 EXPOSE 8080
