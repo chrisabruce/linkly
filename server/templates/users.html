@@ -91,6 +91,11 @@
                             {{ user.created_at.format("%Y-%m-%d %H:%M") }}
                         </td>
                         <td style="white-space:nowrap;">
+                            <a href="/admin/users/{{ user.id }}/edit"
+                               role="button" class="outline"
+                               style="padding:0.3em 0.7em; font-size:0.8rem; text-decoration:none;">
+                                Edit
+                            </a>
                             {% if !user.is_approved %}
                                 <form method="POST" action="/admin/users/{{ user.id }}/approve" style="display:inline;">
                                     <button type="submit" class="outline" style="padding:0.3em 0.7em; font-size:0.8rem;">

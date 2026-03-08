@@ -105,6 +105,53 @@ pub async fn delete_user(pool: &SqlitePool, user_id: i64) -> Result<bool, sqlx::
     Ok(affected > 0)
 }
 
+/// Update a user's email and display name (self-edit).
+pub async fn update_user_profile(
+    pool: &SqlitePool,
+    user_id: i64,
+    email: &str,
+    display_name: &str,
+) -> Result<bool, sqlx::Error> {
+    let affected = sqlx::query(
+        "UPDATE users SET email = ?1, display_name = ?2,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?3",
+    )
+    .bind(email)
+    .bind(display_name)
+    .bind(user_id)
+    .execute(pool)
+    .await?
+    .rows_affected();
+    Ok(affected > 0)
+}
+
+/// Update all editable fields for a user (admin edit).
+pub async fn update_user_full(
+    pool: &SqlitePool,
+    user_id: i64,
+    email: &str,
+    display_name: &str,
+    role: &str,
+    is_approved: bool,
+    force_password_change: bool,
+) -> Result<bool, sqlx::Error> {
+    let affected = sqlx::query(
+        "UPDATE users SET email = ?1, display_name = ?2, role = ?3, is_approved = ?4,
+         force_password_change = ?5, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = ?6",
+    )
+    .bind(email)
+    .bind(display_name)
+    .bind(role)
+    .bind(is_approved)
+    .bind(force_password_change)
+    .bind(user_id)
+    .execute(pool)
+    .await?
+    .rows_affected();
+    Ok(affected > 0)
+}
+
 /// Update a user's password and clear the force_password_change flag.
 pub async fn update_user_password(
     pool: &SqlitePool,

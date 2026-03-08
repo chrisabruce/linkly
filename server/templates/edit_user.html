@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}
+    Edit User
+{% endblock %}
+{% block content %}
+    <div style="max-width: 32rem; margin: 2rem auto;">
+        <hgroup>
+            <h2>Edit User</h2>
+            <p>{{ user.email }}</p>
+        </hgroup>
+
+        {% if let Some(msg) = flash_success %}
+            <div class="flash success">{{ msg }}</div>
+        {% endif %}
+        {% if let Some(msg) = flash_error %}
+            <div class="flash error">{{ msg }}</div>
+        {% endif %}
+
+        <article class="form-card">
+            <form method="POST" action="/admin/users/{{ user.id }}/edit">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                    <label>
+                        Email
+                        <input type="email" name="email" value="{{ user.email }}" required />
+                    </label>
+                    <label>
+                        Display Name
+                        <input type="text" name="display_name" value="{{ user.display_name }}" required />
+                    </label>
+                </div>
+
+                {% if !is_self %}
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                        <label>
+                            Role
+                            <select name="role">
+                                <option value="user" {% if user.role == "user" %}selected{% endif %}>User</option>
+                                <option value="admin" {% if user.role == "admin" %}selected{% endif %}>Admin</option>
+                            </select>
+                        </label>
+                    </div>
+                    <fieldset style="display:flex; gap:2rem; border:none; padding:0; margin-bottom:1rem;">
+                        <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0;">
+                            <input type="checkbox" name="is_approved" {% if user.is_approved %}checked{% endif %} style="margin-bottom:0;" />
+                            Approved
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0;">
+                            <input type="checkbox" name="force_password_change" {% if user.force_password_change %}checked{% endif %} style="margin-bottom:0;" />
+                            Force password change on login
+                        </label>
+                    </fieldset>
+                {% else %}
+                    <input type="hidden" name="role" value="{{ user.role }}" />
+                    {% if user.is_approved %}
+                        <input type="hidden" name="is_approved" value="on" />
+                    {% endif %}
+                {% endif %}
+
+                <hr style="margin: 1.5rem 0;" />
+                <h4 style="margin-bottom: 0.75rem;">Reset Password</h4>
+                <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem;">
+                    Leave blank to keep the current password.
+                </p>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                    <label>
+                        New Password
+                        <input
+                            type="password"
+                            name="new_password"
+                            placeholder="At least 8 characters"
+                            autocomplete="new-password"
+                            minlength="8"
+                        />
+                    </label>
+                    <label>
+                        Confirm New Password
+                        <input
+                            type="password"
+                            name="new_password_confirm"
+                            placeholder="Re-enter new password"
+                            autocomplete="new-password"
+                            minlength="8"
+                        />
+                    </label>
+                </div>
+
+                <div style="display:flex; gap:1rem; margin-top:1rem;">
+                    <button type="submit">Save Changes</button>
+                    <a href="/admin/users" role="button" class="outline">Back to Users</a>
+                </div>
+            </form>
+        </article>
+    </div>
+{% endblock %}

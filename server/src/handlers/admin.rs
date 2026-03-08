@@ -3,7 +3,7 @@ use crate::{
     db,
     db_bio,
     db_users,
-    models::{AnalyticsSummary, BioPageWithClicks, LinkWithStats},
+    models::{AnalyticsSummary, BioPageWithClicks, LinkWithStats, User},
     password,
     AppState,
 };
@@ -97,6 +97,16 @@ struct AnalyticsTemplate {
     app_title: String,
 }
 
+#[derive(Template)]
+#[template(path = "profile.html")]
+struct ProfileTemplate {
+    user: User,
+    flash_success: Option<String>,
+    flash_error: Option<String>,
+    is_admin: bool,
+    app_title: String,
+}
+
 // ── Form types ─────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -117,6 +127,15 @@ pub struct RegisterForm {
 pub struct ChangePasswordForm {
     new_password: String,
     new_password_confirm: String,
+}
+
+#[derive(Deserialize)]
+pub struct ProfileForm {
+    email: String,
+    display_name: String,
+    current_password: Option<String>,
+    new_password: Option<String>,
+    new_password_confirm: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -327,6 +346,159 @@ pub async fn change_password(
         .build();
 
     (jar.add(cookie), Redirect::to("/admin/dashboard")).into_response()
+}
+
+// ── Profile ──────────────────────────────────────────────────────────────
+
+/// GET /admin/profile
+pub async fn profile_page(
+    auth: AuthUser,
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> Response {
+    let flash_success = jar.get("flash_success").map(|c| c.value().to_owned());
+    let flash_error = jar.get("flash_error").map(|c| c.value().to_owned());
+
+    let clear_success = Cookie::build(("flash_success", ""))
+        .path("/")
+        .max_age(time::Duration::seconds(0))
+        .build();
+    let clear_error = Cookie::build(("flash_error", ""))
+        .path("/")
+        .max_age(time::Duration::seconds(0))
+        .build();
+
+    let user = match db_users::get_user_by_id(&state.db, auth.user_id).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/admin/dashboard").into_response(),
+    };
+
+    let tmpl = ProfileTemplate {
+        user,
+        flash_success,
+        flash_error,
+        is_admin: auth.is_admin(),
+        app_title: state.config.app_title.clone(),
+    };
+
+    (jar.remove(clear_success).remove(clear_error), tmpl).into_response()
+}
+
+/// POST /admin/profile
+pub async fn update_profile(
+    auth: AuthUser,
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Form(form): Form<ProfileForm>,
+) -> Response {
+    let email = form.email.trim().to_lowercase();
+    let display_name = form.display_name.trim().to_string();
+
+    // Validate
+    if email.is_empty() || !email.contains('@') {
+        return set_flash_and_redirect(jar, None, Some("Please enter a valid email address."), "/admin/profile");
+    }
+    if display_name.is_empty() {
+        return set_flash_and_redirect(jar, None, Some("Display name is required."), "/admin/profile");
+    }
+
+    // Check for duplicate email (if changed)
+    if email != auth.email {
+        match db_users::get_user_by_email(&state.db, &email).await {
+            Ok(Some(_)) => {
+                return set_flash_and_redirect(jar, None, Some("That email is already in use by another account."), "/admin/profile");
+            }
+            Err(e) => {
+                tracing::error!("DB error checking email: {:?}", e);
+                return set_flash_and_redirect(jar, None, Some("Internal error. Please try again."), "/admin/profile");
+            }
+            Ok(None) => {}
+        }
+    }
+
+    // Handle password change if requested
+    let new_password = form.new_password.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    if let Some(new_pass) = new_password {
+        // Require current password
+        let current = form.current_password.as_deref().unwrap_or("");
+        if current.is_empty() {
+            return set_flash_and_redirect(jar, None, Some("Current password is required to set a new password."), "/admin/profile");
+        }
+
+        // Verify current password
+        let user = match db_users::get_user_by_id(&state.db, auth.user_id).await {
+            Ok(Some(u)) => u,
+            _ => return set_flash_and_redirect(jar, None, Some("Internal error."), "/admin/profile"),
+        };
+        let hash = user.password_hash.clone();
+        let pass = current.to_owned();
+        let valid = tokio::task::spawn_blocking(move || password::verify_password(&pass, &hash))
+            .await
+            .unwrap_or(false);
+        if !valid {
+            return set_flash_and_redirect(jar, None, Some("Current password is incorrect."), "/admin/profile");
+        }
+
+        // Validate new password
+        if new_pass.len() < 8 {
+            return set_flash_and_redirect(jar, None, Some("New password must be at least 8 characters."), "/admin/profile");
+        }
+        let confirm = form.new_password_confirm.as_deref().unwrap_or("");
+        if new_pass != confirm {
+            return set_flash_and_redirect(jar, None, Some("New passwords do not match."), "/admin/profile");
+        }
+
+        // Hash and update
+        let pass = new_pass.to_owned();
+        let hash = match tokio::task::spawn_blocking(move || password::hash_password(&pass)).await {
+            Ok(Ok(h)) => h,
+            _ => return set_flash_and_redirect(jar, None, Some("Internal error hashing password."), "/admin/profile"),
+        };
+        if let Err(e) = db_users::update_user_password(&state.db, auth.user_id, &hash).await {
+            tracing::error!("Failed to update password: {:?}", e);
+            return set_flash_and_redirect(jar, None, Some("Failed to update password."), "/admin/profile");
+        }
+    }
+
+    // Update profile fields
+    if let Err(e) = db_users::update_user_profile(&state.db, auth.user_id, &email, &display_name).await {
+        tracing::error!("Failed to update profile: {:?}", e);
+        let msg = if e.to_string().contains("UNIQUE") {
+            "That email is already in use by another account."
+        } else {
+            "Failed to update profile."
+        };
+        return set_flash_and_redirect(jar, None, Some(msg), "/admin/profile");
+    }
+
+    // If email changed, reissue JWT
+    if email != auth.email {
+        let token = match auth::create_jwt(
+            auth.user_id,
+            &email,
+            &auth.role,
+            &state.config.jwt_secret,
+            state.config.session_duration_hours,
+            false,
+        ) {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to reissue JWT after profile update: {:?}", e);
+                return set_flash_and_redirect(jar, Some("Profile updated, but session refresh failed. Please log in again."), None, "/admin/profile");
+            }
+        };
+        let cookie = Cookie::build(("auth_token", token))
+            .path("/")
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .max_age(time::Duration::seconds(
+                state.config.session_duration_hours as i64 * 3600,
+            ))
+            .build();
+        return set_flash_and_redirect(jar.add(cookie), Some("Profile updated."), None, "/admin/profile");
+    }
+
+    set_flash_and_redirect(jar, Some("Profile updated."), None, "/admin/profile")
 }
 
 // ── Register ──────────────────────────────────────────────────────────────

@@ -135,6 +135,10 @@ async fn main() -> anyhow::Result<()> {
             "/change-password",
             get(handlers::admin::change_password_page).post(handlers::admin::change_password),
         )
+        .route(
+            "/profile",
+            get(handlers::admin::profile_page).post(handlers::admin::update_profile),
+        )
         .route("/dashboard", get(handlers::admin::dashboard))
         .route("/short-links", get(handlers::admin::short_links))
         .route("/validate-code", get(handlers::admin::validate_code))
@@ -159,6 +163,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/users/:id/approve", post(handlers::users::approve_user))
         .route("/users/:id/role", post(handlers::users::change_role))
         .route("/users/:id/delete", post(handlers::users::delete_user))
+        .route(
+            "/users/:id/edit",
+            get(handlers::users::edit_user_page).post(handlers::users::edit_user),
+        )
         .layer(DefaultBodyLimit::max(10 * 1024 * 1024));
 
     let app = Router::new()

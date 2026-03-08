@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}
+    Profile
+{% endblock %}
+{% block content %}
+    <div style="max-width: 32rem; margin: 2rem auto;">
+        <hgroup>
+            <h2>Your Profile</h2>
+            <p>Update your account details.</p>
+        </hgroup>
+
+        {% if let Some(msg) = flash_success %}
+            <div class="flash success">{{ msg }}</div>
+        {% endif %}
+        {% if let Some(msg) = flash_error %}
+            <div class="flash error">{{ msg }}</div>
+        {% endif %}
+
+        <article class="form-card">
+            <form method="POST" action="/admin/profile">
+                <label>
+                    Email
+                    <input type="email" name="email" value="{{ user.email }}" required />
+                </label>
+                <label>
+                    Display Name
+                    <input type="text" name="display_name" value="{{ user.display_name }}" required />
+                </label>
+
+                <hr style="margin: 1.5rem 0;" />
+                <h4 style="margin-bottom: 0.75rem;">Change Password</h4>
+                <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem;">
+                    Leave blank to keep your current password.
+                </p>
+
+                <label>
+                    Current Password
+                    <input
+                        type="password"
+                        name="current_password"
+                        placeholder="Required to change password"
+                        autocomplete="current-password"
+                    />
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                    <label>
+                        New Password
+                        <input
+                            type="password"
+                            name="new_password"
+                            placeholder="At least 8 characters"
+                            autocomplete="new-password"
+                            minlength="8"
+                        />
+                    </label>
+                    <label>
+                        Confirm New Password
+                        <input
+                            type="password"
+                            name="new_password_confirm"
+                            placeholder="Re-enter new password"
+                            autocomplete="new-password"
+                            minlength="8"
+                        />
+                    </label>
+                </div>
+
+                <button type="submit" style="margin-top: 1rem;">Save Changes</button>
+            </form>
+        </article>
+    </div>
+{% endblock %}
