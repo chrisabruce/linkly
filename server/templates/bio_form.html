@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+{% block title %}{% if page.is_some() %}Edit{% else %}New{% endif %} Links Page{% endblock %}
+{% block content %}
+    {% if let Some(msg) = flash_error %}
+        <div class="flash error">{{ msg }}</div>
+    {% endif %}
+
+    <div style="margin-bottom:1.5rem;">
+        <a href="/admin/bio">&larr; Back to Links Pages</a>
+    </div>
+
+    <h2>{% if page.is_some() %}Edit Links Page{% else %}New Links Page{% endif %}</h2>
+
+    <form method="POST"
+          action="{% if let Some(p) = page %}/admin/bio/{{ p.page.id }}{% else %}/admin/bio{% endif %}"
+          id="bio-form">
+
+        <!-- Page Settings -->
+        <article style="margin-bottom:1.5rem;">
+            <header><strong>Page Settings</strong></header>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <label data-signals:slug="'{% if let Some(p) = page %}{{ p.page.slug }}{% endif %}'"
+                       {% if let Some(p) = page %}data-signals:currentid="{{ p.page.id }}"{% endif %}>
+                    Slug
+                    <div style="position:relative;">
+                        <input type="text" name="slug" required pattern="[a-zA-Z0-9\-]+"
+                               title="Letters, numbers, and hyphens only"
+                               placeholder="my-page"
+                               value="{% if let Some(p) = page %}{{ p.page.slug }}{% endif %}"
+                               style="padding-right:2.2rem;"
+                               data-bind:slug
+                               data-on:input__debounce.300ms="@get('/admin/bio/validate-slug')" />
+                        <span id="slug-validation" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); font-size:1.1rem; pointer-events:none;"></span>
+                    </div>
+                    <small style="color:var(--pico-muted-color);">URL: {{ base_url }}/<em>slug</em></small>
+                </label>
+                <label>
+                    Display Name
+                    <input type="text" name="display_name" required placeholder="Jane Doe"
+                           value="{% if let Some(p) = page %}{{ p.page.display_name }}{% endif %}" />
+                </label>
+            </div>
+            <label>
+                Bio
+                <textarea name="bio" rows="3" placeholder="A short bio or tagline...">{% if let Some(p) = page %}{{ p.page.bio }}{% endif %}</textarea>
+            </label>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem; align-items:end;">
+                <label>
+                    Email Address <small style="color:var(--pico-muted-color);">(optional)</small>
+                    <input type="email" name="email_address" placeholder="hello@example.com"
+                           value="{% if let Some(p) = page %}{% if let Some(e) = p.page.email_address %}{{ e }}{% endif %}{% endif %}" />
+                </label>
+                <label>
+                    Template
+                    <select name="template_name">
+                        {% for t in templates %}
+                            <option value="{{ t.0 }}"
+                                {% if let Some(p) = page %}
+                                    {% if p.page.template_name == t.0 %}selected{% endif %}
+                                {% endif %}
+                            >{{ t.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.5rem; padding-bottom:0.5rem;">
+                    <input type="checkbox" name="is_published" role="switch"
+                        {% if let Some(p) = page %}
+                            {% if p.page.is_published %}checked{% endif %}
+                        {% endif %}
+                    />
+                    Published
+                </label>
+            </div>
+        </article>
+
+        <!-- Images -->
+        <article style="margin-bottom:1.5rem;">
+            <header><strong>Images</strong></header>
+            <label>
+                Profile Image URL <small style="color:var(--pico-muted-color);">(optional)</small>
+                <div style="display:flex; gap:0.5rem; align-items:end;">
+                    <input type="url" name="profile_image_url" id="profile-image-url"
+                           placeholder="https://example.com/photo.jpg"
+                           value="{% if let Some(p) = page %}{% if let Some(img) = p.page.profile_image_url %}{{ img }}{% endif %}{% endif %}"
+                           style="flex:1;" />
+                    {% if s3_enabled %}
+                        <button type="button" onclick="uploadImage('profile')"
+                                style="white-space:nowrap;">Upload</button>
+                    {% endif %}
+                </div>
+            </label>
+
+            <div style="display:grid; grid-template-columns:auto 1fr; gap:0.75rem; align-items:end;">
+                <label>
+                    Background Type
+                    <select name="background_type" id="bg-type" onchange="toggleBgFields()">
+                        <option value="color"
+                            {% if let Some(p) = page %}{% if p.page.background_type == "color" %}selected{% endif %}{% endif %}
+                        >Color</option>
+                        <option value="upload"
+                            {% if let Some(p) = page %}{% if p.page.background_type == "upload" %}selected{% endif %}{% endif %}
+                        >Upload Image</option>
+                        {% if unsplash_enabled %}
+                            <option value="unsplash"
+                                {% if let Some(p) = page %}{% if p.page.background_type == "unsplash" %}selected{% endif %}{% endif %}
+                            >Unsplash Search</option>
+                        {% endif %}
+                    </select>
+                </label>
+                <div id="bg-color-field">
+                    <label>
+                        Background Color
+                        <input type="color" name="background_color"
+                               value="{% if let Some(p) = page %}{% if p.page.background_type == "color" %}{{ p.page.background_value }}{% else %}#ffffff{% endif %}{% else %}#ffffff{% endif %}"
+                               style="height:2.5rem; padding:0.2rem;" />
+                    </label>
+                </div>
+                <div id="bg-upload-field" style="display:none;">
+                    <label>
+                        Background Image URL
+                        <div style="display:flex; gap:0.5rem; align-items:end;">
+                            <input type="url" id="bg-upload-url"
+                                   placeholder="https://example.com/bg.jpg"
+                                   value="{% if let Some(p) = page %}{% if p.page.background_type == "upload" %}{{ p.page.background_value }}{% endif %}{% endif %}"
+                                   style="flex:1;" />
+                            {% if s3_enabled %}
+                                <button type="button" onclick="uploadImage('background')"
+                                        style="white-space:nowrap;">Upload</button>
+                            {% endif %}
+                        </div>
+                    </label>
+                </div>
+                <div id="bg-unsplash-field" style="display:none;">
+                    <label>
+                        Search Unsplash
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="text" id="unsplash-query" placeholder="nature, city, abstract..."
+                                   style="flex:1;" />
+                            <button type="button" onclick="searchUnsplash()">Search</button>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <input type="hidden" name="background_value" id="bg-value"
+                   value="{% if let Some(p) = page %}{{ p.page.background_value }}{% else %}#ffffff{% endif %}" />
+            <div id="unsplash-results" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:0.5rem; margin-top:0.75rem;"></div>
+            <div id="bg-preview" style="margin-top:0.75rem;">
+                {% if let Some(p) = page %}
+                    {% if p.page.background_type != "color" && !p.page.background_value.is_empty() %}
+                        <img src="{{ p.page.background_value }}" alt="Background preview"
+                             style="max-height:120px; border-radius:8px; object-fit:cover;" />
+                    {% endif %}
+                {% endif %}
+            </div>
+        </article>
+
+        <!-- Links -->
+        <article style="margin-bottom:1.5rem;">
+            <header>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>Links</strong>
+                    <button type="button" onclick="addLink()" style="font-size:0.85rem; padding:0.3em 0.8em;">+ Add Link</button>
+                </div>
+            </header>
+            <div id="links-container">
+                {% if let Some(p) = page %}
+                    {% for link in p.links %}
+                        <div class="link-row" style="display:grid; grid-template-columns:1fr 2fr auto auto; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+                            <input type="text" class="link-title" placeholder="Title" value="{{ link.title }}" />
+                            <input type="url" class="link-url" placeholder="https://..." value="{{ link.url }}" />
+                            <label style="display:flex; align-items:center; gap:0.3rem; margin:0; white-space:nowrap;">
+                                <input type="checkbox" class="link-active" {% if link.is_active %}checked{% endif %} /> Active
+                            </label>
+                            <button type="button" class="delete-btn" onclick="this.closest('.link-row').remove()">Remove</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <input type="hidden" name="links_json" id="links-json" value="[]" />
+        </article>
+
+        <!-- Social Links -->
+        <article style="margin-bottom:1.5rem;">
+            <header>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>Social Links</strong>
+                    <button type="button" onclick="addSocialLink()" style="font-size:0.85rem; padding:0.3em 0.8em;">+ Add Social</button>
+                </div>
+            </header>
+            <div id="social-container">
+                {% if let Some(p) = page %}
+                    {% for social in p.social_links %}
+                        <div class="social-row" style="display:grid; grid-template-columns:auto 1fr auto; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+                            <select class="social-platform" onchange="updatePlaceholder(this)">
+                                {% for sp in social_platforms %}
+                                    <option value="{{ sp.0 }}" {% if social.platform == sp.0 %}selected{% endif %}>{{ sp.1 }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" class="social-url" placeholder="@handle" value="{{ social.url }}" />
+                            <button type="button" class="delete-btn" onclick="this.closest('.social-row').remove()">Remove</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <input type="hidden" name="social_links_json" id="social-links-json" value="[]" />
+        </article>
+
+        <!-- Custom CSS -->
+        <article style="margin-bottom:1.5rem;">
+            <header><strong>Custom CSS</strong> <small style="color:var(--pico-muted-color);">(optional &mdash; overrides template styles)</small></header>
+            <textarea name="custom_css" rows="6" style="font-family:monospace; font-size:0.85rem;"
+                      placeholder=".bio-link { border-radius: 0; }">{% if let Some(p) = page %}{{ p.page.custom_css }}{% endif %}</textarea>
+        </article>
+
+        <button type="submit" style="width:100%;">
+            {% if page.is_some() %}Save Changes{% else %}Create Links Page{% endif %}
+        </button>
+    </form>
+
+    <!-- File upload dialog (hidden) -->
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
+
+    <script>
+    // ── Background type toggle ──────────────────────────
+    function toggleBgFields() {
+        const type = document.getElementById('bg-type').value;
+        document.getElementById('bg-color-field').style.display = type === 'color' ? '' : 'none';
+        document.getElementById('bg-upload-field').style.display = type === 'upload' ? '' : 'none';
+        document.getElementById('bg-unsplash-field').style.display = type === 'unsplash' ? '' : 'none';
+    }
+    toggleBgFields();
+
+    // Default background colors per template (dark templates need dark backgrounds)
+    const templateDefaults = {
+        minimal: '#ffffff',
+        rounded: '#f0e6ef',
+        bold: '#1a1a2e',
+        glass: '#2d1b69',
+        neon: '#0a0a0a',
+    };
+
+    // Update background_value hidden field based on type
+    function syncBgValue() {
+        const type = document.getElementById('bg-type').value;
+        const bgValue = document.getElementById('bg-value');
+        if (type === 'color') {
+            bgValue.value = document.querySelector('[name="background_color"]').value;
+        } else if (type === 'upload') {
+            bgValue.value = document.getElementById('bg-upload-url').value;
+        }
+        // unsplash value is set by selectUnsplashImage()
+    }
+    document.querySelector('[name="background_color"]')?.addEventListener('input', syncBgValue);
+    document.getElementById('bg-upload-url')?.addEventListener('input', syncBgValue);
+    document.getElementById('bg-type')?.addEventListener('change', syncBgValue);
+
+    // When template changes, suggest an appropriate default background color
+    document.querySelector('[name="template_name"]')?.addEventListener('change', function() {
+        const colorInput = document.querySelector('[name="background_color"]');
+        const bgType = document.getElementById('bg-type').value;
+        // Only auto-set if background type is "color" and current value is a known default
+        if (bgType === 'color' && Object.values(templateDefaults).includes(colorInput.value)) {
+            colorInput.value = templateDefaults[this.value] || '#ffffff';
+            syncBgValue();
+        }
+    });
+
+    // ── Image upload ────────────────────────────────────
+    let uploadTarget = 'profile';
+    function uploadImage(target) {
+        uploadTarget = target;
+        document.getElementById('file-input').click();
+    }
+    document.getElementById('file-input').addEventListener('change', async function() {
+        const file = this.files[0];
+        if (!file) return;
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            const resp = await fetch('/admin/bio/upload', { method: 'POST', body: form });
+            if (!resp.ok) { alert('Upload failed: ' + await resp.text()); return; }
+            const data = await resp.json();
+            if (uploadTarget === 'profile') {
+                document.getElementById('profile-image-url').value = data.url;
+            } else {
+                document.getElementById('bg-upload-url').value = data.url;
+                document.getElementById('bg-value').value = data.url;
+                document.getElementById('bg-preview').innerHTML =
+                    '<img src="' + data.url + '" alt="Preview" style="max-height:120px; border-radius:8px; object-fit:cover;" />';
+            }
+        } catch (e) { alert('Upload error: ' + e.message); }
+        this.value = '';
+    });
+
+    // ── Unsplash search ─────────────────────────────────
+    async function searchUnsplash() {
+        const q = document.getElementById('unsplash-query').value.trim();
+        if (!q) return;
+        const container = document.getElementById('unsplash-results');
+        container.innerHTML = '<p style="grid-column:1/-1; color:var(--pico-muted-color);">Searching...</p>';
+        try {
+            const resp = await fetch('/admin/bio/unsplash?q=' + encodeURIComponent(q));
+            if (!resp.ok) { container.innerHTML = '<p style="grid-column:1/-1;">Search failed.</p>'; return; }
+            const results = await resp.json();
+            container.innerHTML = '';
+            if (results.length === 0) {
+                container.innerHTML = '<p style="grid-column:1/-1; color:var(--pico-muted-color);">No results found.</p>';
+                return;
+            }
+            results.forEach(function(img) {
+                const div = document.createElement('div');
+                div.style.cssText = 'cursor:pointer; border-radius:8px; overflow:hidden; aspect-ratio:16/10;';
+                div.innerHTML = '<img src="' + img.url_small + '" alt="' + (img.description || '') + '" ' +
+                    'style="width:100%; height:100%; object-fit:cover;" title="Photo by ' + img.author + '" />';
+                div.addEventListener('click', function() {
+                    selectUnsplashImage(img.url_regular, img.author, img.author_url);
+                });
+                container.appendChild(div);
+            });
+        } catch (e) {
+            container.innerHTML = '<p style="grid-column:1/-1;">Error: ' + e.message + '</p>';
+        }
+    }
+    function selectUnsplashImage(url, author, authorUrl) {
+        document.getElementById('bg-value').value = url;
+        document.getElementById('unsplash-results').innerHTML = '';
+        document.getElementById('bg-preview').innerHTML =
+            '<img src="' + url + '" alt="Selected background" style="max-height:120px; border-radius:8px; object-fit:cover;" />' +
+            '<small style="color:var(--pico-muted-color); display:block; margin-top:0.3rem;">Photo by <a href="' + authorUrl + '" target="_blank">' + author + '</a> on Unsplash</small>';
+    }
+
+    // ── Platform URL patterns ────────────────────────────
+    const socialPlatforms = [
+        {% for sp in social_platforms %}
+            ["{{ sp.0 }}", "{{ sp.1 }}"],
+        {% endfor %}
+    ];
+
+    // Map platform -> { base URL prefix, placeholder text }
+    // Platforms not listed here require a full URL.
+    const platformPatterns = {
+        twitter:    { prefix: 'https://x.com/',            placeholder: '@handle' },
+        instagram:  { prefix: 'https://instagram.com/',    placeholder: '@handle' },
+        facebook:   { prefix: 'https://facebook.com/',     placeholder: 'username' },
+        linkedin:   { prefix: 'https://linkedin.com/in/',  placeholder: 'username' },
+        github:     { prefix: 'https://github.com/',       placeholder: 'username' },
+        youtube:    { prefix: 'https://youtube.com/@',     placeholder: '@channel' },
+        tiktok:     { prefix: 'https://tiktok.com/@',      placeholder: '@handle' },
+        twitch:     { prefix: 'https://twitch.tv/',        placeholder: 'username' },
+        threads:    { prefix: 'https://threads.net/@',     placeholder: '@handle' },
+        bluesky:    { prefix: 'https://bsky.app/profile/', placeholder: 'handle.bsky.social' },
+        soundcloud: { prefix: 'https://soundcloud.com/',   placeholder: 'username' },
+        dribbble:   { prefix: 'https://dribbble.com/',     placeholder: 'username' },
+        behance:    { prefix: 'https://behance.net/',      placeholder: 'username' },
+        pinterest:  { prefix: 'https://pinterest.com/',    placeholder: 'username' },
+        snapchat:   { prefix: 'https://snapchat.com/add/', placeholder: 'username' },
+        telegram:   { prefix: 'https://t.me/',             placeholder: 'username' },
+    };
+
+    // Extract handle from a full URL for a known platform
+    function extractHandle(platform, url) {
+        const pat = platformPatterns[platform];
+        if (!pat || !url) return url;
+        // Try common URL variants for the platform
+        const prefixes = [pat.prefix, pat.prefix.replace('https://', 'http://')];
+        // Also try www. variant
+        prefixes.push(pat.prefix.replace('https://', 'https://www.'));
+        for (const p of prefixes) {
+            if (url.startsWith(p)) {
+                return url.slice(p.length).replace(/\/+$/, '');
+            }
+        }
+        return url;
+    }
+
+    // Build full URL from a handle for a known platform
+    function buildUrl(platform, value) {
+        if (!value) return '';
+        // If it already looks like a URL, leave it alone
+        if (value.startsWith('http://') || value.startsWith('https://')) return value;
+        const pat = platformPatterns[platform];
+        if (!pat) return value;
+        // Strip leading @ if the prefix already includes it
+        let handle = value.replace(/^@/, '');
+        return pat.prefix + handle;
+    }
+
+    // Update placeholder when platform changes
+    function updatePlaceholder(selectEl) {
+        const input = selectEl.closest('.social-row').querySelector('.social-url');
+        const pat = platformPatterns[selectEl.value];
+        input.placeholder = pat ? pat.placeholder : 'https://...';
+        input.type = pat ? 'text' : 'url';
+    }
+
+    // ── Dynamic link rows ───────────────────────────────
+    function addLink() {
+        const container = document.getElementById('links-container');
+        const row = document.createElement('div');
+        row.className = 'link-row';
+        row.style.cssText = 'display:grid; grid-template-columns:1fr 2fr auto auto; gap:0.5rem; align-items:center; margin-bottom:0.5rem;';
+        row.innerHTML = '<input type="text" class="link-title" placeholder="Title" />' +
+            '<input type="url" class="link-url" placeholder="https://..." />' +
+            '<label style="display:flex; align-items:center; gap:0.3rem; margin:0; white-space:nowrap;">' +
+            '<input type="checkbox" class="link-active" checked /> Active</label>' +
+            '<button type="button" class="delete-btn" onclick="this.closest(\'.link-row\').remove()">Remove</button>';
+        container.appendChild(row);
+    }
+
+    function addSocialLink() {
+        const container = document.getElementById('social-container');
+        const row = document.createElement('div');
+        row.className = 'social-row';
+        row.style.cssText = 'display:grid; grid-template-columns:auto 1fr auto; gap:0.5rem; align-items:center; margin-bottom:0.5rem;';
+        let opts = socialPlatforms.map(function(sp) {
+            return '<option value="' + sp[0] + '">' + sp[1] + '</option>';
+        }).join('');
+        const firstPat = platformPatterns[socialPlatforms[0][0]];
+        const ph = firstPat ? firstPat.placeholder : 'https://...';
+        const inputType = firstPat ? 'text' : 'url';
+        row.innerHTML = '<select class="social-platform" onchange="updatePlaceholder(this)">' + opts + '</select>' +
+            '<input type="' + inputType + '" class="social-url" placeholder="' + ph + '" />' +
+            '<button type="button" class="delete-btn" onclick="this.closest(\'.social-row\').remove()">Remove</button>';
+        container.appendChild(row);
+    }
+
+    // ── On page load: extract handles from stored URLs ──
+    document.querySelectorAll('.social-row').forEach(function(row) {
+        const select = row.querySelector('.social-platform');
+        const input = row.querySelector('.social-url');
+        const platform = select.value;
+        input.value = extractHandle(platform, input.value);
+        const pat = platformPatterns[platform];
+        input.placeholder = pat ? pat.placeholder : 'https://...';
+        input.type = pat ? 'text' : 'url';
+        select.addEventListener('change', function() { updatePlaceholder(this); });
+    });
+
+    // ── Serialize links to JSON before submit ───────────
+    document.getElementById('bio-form').addEventListener('submit', function() {
+        // Sync background value one last time
+        syncBgValue();
+
+        // Serialize links
+        const links = [];
+        document.querySelectorAll('.link-row').forEach(function(row, i) {
+            const title = row.querySelector('.link-title').value.trim();
+            const url = row.querySelector('.link-url').value.trim();
+            if (title && url) {
+                links.push({
+                    title: title,
+                    url: url,
+                    sort_order: i,
+                    is_active: row.querySelector('.link-active').checked
+                });
+            }
+        });
+        document.getElementById('links-json').value = JSON.stringify(links);
+
+        // Serialize social links (reconstruct full URLs from handles)
+        const socials = [];
+        document.querySelectorAll('.social-row').forEach(function(row, i) {
+            const platform = row.querySelector('.social-platform').value;
+            const raw = row.querySelector('.social-url').value.trim();
+            const url = buildUrl(platform, raw);
+            if (url) {
+                socials.push({ platform: platform, url: url, sort_order: i });
+            }
+        });
+        document.getElementById('social-links-json').value = JSON.stringify(socials);
+    });
+    </script>
+{% endblock %}

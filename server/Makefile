@@ -94,6 +94,26 @@ uninstall:
 	@echo "✔  Removed /usr/local/bin/$(BINARY)"
 
 # -------------------------------------------------------
+# S3
+# -------------------------------------------------------
+
+## s3-public: set the RustFS bucket to public-read via mc (reads S3_* vars from .env)
+.PHONY: s3-public
+s3-public:
+	@if [ ! -f $(ENV_FILE) ]; then echo "Error: $(ENV_FILE) not found"; exit 1; fi
+	@S3_BUCKET=$$(grep '^S3_BUCKET=' $(ENV_FILE) | cut -d= -f2-) && \
+	 S3_ENDPOINT=$$(grep '^S3_ENDPOINT=' $(ENV_FILE) | cut -d= -f2-) && \
+	 S3_ACCESS_KEY=$$(grep '^S3_ACCESS_KEY=' $(ENV_FILE) | cut -d= -f2-) && \
+	 S3_SECRET_KEY=$$(grep '^S3_SECRET_KEY=' $(ENV_FILE) | cut -d= -f2-) && \
+	 if [ -z "$$S3_BUCKET" ] || [ -z "$$S3_ENDPOINT" ]; then \
+	   echo "Error: S3_BUCKET and S3_ENDPOINT must be set in $(ENV_FILE)"; exit 1; \
+	 fi && \
+	 mc alias set linkly-s3 "$$S3_ENDPOINT" "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" && \
+	 mc mb linkly-s3/"$$S3_BUCKET" --ignore-existing && \
+	 mc anonymous set download linkly-s3/"$$S3_BUCKET" && \
+	 echo "✔  Bucket '$$S3_BUCKET' is now public-read"
+
+# -------------------------------------------------------
 # Help
 # -------------------------------------------------------
 

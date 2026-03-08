@@ -6,64 +6,77 @@ use axum::{
     response::Redirect,
 };
 use axum_extra::extract::CookieJar;
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tokio::sync::RwLock;
-use uuid::Uuid;
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-// ── Session Store ──────────────────────────────────────────────────────────
+// ── JWT Claims ────────────────────────────────────────────────────────────
 
-/// In-memory session store. Each entry maps a session token (UUID) to the
-/// instant it was created. Tokens expire after `session_duration`.
-pub struct SessionStore {
-    sessions: RwLock<HashMap<String, Instant>>,
-    pub session_duration: Duration,
+/// JWT claims embedded in the auth token.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: i64,     // user ID
+    pub email: String,
+    pub role: String, // "admin" or "user"
+    pub exp: usize,   // expiry (Unix timestamp)
+    pub iat: usize,   // issued at
+    #[serde(default)] // backward compat with tokens issued before this field existed
+    pub fpc: bool,    // force password change
 }
 
-impl SessionStore {
-    pub fn new(session_duration_hours: u64) -> Self {
-        Self {
-            sessions: RwLock::new(HashMap::new()),
-            session_duration: Duration::from_secs(session_duration_hours * 3600),
-        }
-    }
-
-    /// Create a new session and return its token.
-    pub async fn create(&self) -> String {
-        let token = Uuid::new_v4().to_string();
-        let mut sessions = self.sessions.write().await;
-        // Opportunistically prune expired sessions on every login
-        sessions.retain(|_, created_at| created_at.elapsed() < self.session_duration);
-        sessions.insert(token.clone(), Instant::now());
-        token
-    }
-
-    /// Return `true` if the token exists and has not expired.
-    pub async fn is_valid(&self, token: &str) -> bool {
-        let sessions = self.sessions.read().await;
-        sessions
-            .get(token)
-            .map(|created_at| created_at.elapsed() < self.session_duration)
-            .unwrap_or(false)
-    }
-
-    /// Invalidate a specific session (logout).
-    pub async fn remove(&self, token: &str) {
-        let mut sessions = self.sessions.write().await;
-        sessions.remove(token);
-    }
+/// Create a signed JWT for the given user.
+pub fn create_jwt(
+    user_id: i64,
+    email: &str,
+    role: &str,
+    secret: &str,
+    duration_hours: u64,
+    force_password_change: bool,
+) -> Result<String, jsonwebtoken::errors::Error> {
+    let now = chrono::Utc::now();
+    let exp = (now + chrono::Duration::hours(duration_hours as i64)).timestamp() as usize;
+    let claims = Claims {
+        sub: user_id,
+        email: email.to_string(),
+        role: role.to_string(),
+        exp,
+        iat: now.timestamp() as usize,
+        fpc: force_password_change,
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
 }
 
-// ── AuthUser extractor ─────────────────────────────────────────────────────
+/// Decode and validate a JWT. Returns claims if valid.
+pub fn verify_jwt(token: &str, secret: &str) -> Option<Claims> {
+    decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .ok()
+    .map(|data| data.claims)
+}
 
-/// Extractor that enforces authentication on any handler that includes it as
-/// a parameter. If the request carries a valid `session_id` cookie the
-/// extractor succeeds; otherwise it short-circuits with a redirect to the
-/// login page so the handler never runs.
-pub struct AuthUser;
+// ── AuthUser extractor ───────────────────────────────────────────────────
+
+/// Extractor that enforces authentication. Carries user identity from the JWT.
+#[allow(dead_code)]
+pub struct AuthUser {
+    pub user_id: i64,
+    pub email: String,
+    pub role: String,
+    pub force_password_change: bool,
+}
+
+impl AuthUser {
+    pub fn is_admin(&self) -> bool {
+        self.role == "admin"
+    }
+}
 
 #[async_trait]
 impl<S> FromRequestParts<S> for AuthUser
@@ -77,16 +90,57 @@ where
         let state = Arc::<AppState>::from_ref(state);
         let jar = CookieJar::from_headers(&parts.headers);
 
-        let valid = if let Some(cookie) = jar.get("session_id") {
-            state.sessions.is_valid(cookie.value()).await
-        } else {
-            false
-        };
+        let claims = jar
+            .get("auth_token")
+            .and_then(|cookie| verify_jwt(cookie.value(), &state.config.jwt_secret));
 
-        if valid {
-            Ok(AuthUser)
+        match claims {
+            Some(c) => {
+                // If forced to change password, only allow change-password and logout routes
+                if c.fpc {
+                    let path = parts.uri.path();
+                    if path != "/admin/change-password" && path != "/admin/logout" {
+                        return Err(Redirect::to("/admin/change-password"));
+                    }
+                }
+                Ok(AuthUser {
+                    user_id: c.sub,
+                    email: c.email,
+                    role: c.role,
+                    force_password_change: c.fpc,
+                })
+            }
+            None => Err(Redirect::to("/admin/login")),
+        }
+    }
+}
+
+// ── AdminUser extractor ──────────────────────────────────────────────────
+
+/// Extractor that requires admin role. Redirects non-admins to dashboard.
+#[allow(dead_code)]
+pub struct AdminUser {
+    pub user_id: i64,
+    pub email: String,
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AdminUser
+where
+    S: Send + Sync,
+    Arc<AppState>: FromRef<S>,
+{
+    type Rejection = Redirect;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let auth = AuthUser::from_request_parts(parts, state).await?;
+        if auth.is_admin() {
+            Ok(AdminUser {
+                user_id: auth.user_id,
+                email: auth.email,
+            })
         } else {
-            Err(Redirect::to("/admin/login"))
+            Err(Redirect::to("/admin/dashboard"))
         }
     }
 }

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page.page.display_name }}</title>
+    <meta name="description" content="{{ page.page.bio }}" />
+    <meta property="og:title" content="{{ page.page.display_name }}" />
+    <meta property="og:description" content="{{ page.page.bio }}" />
+    {% if let Some(img) = page.page.profile_image_url %}
+        <meta property="og:image" content="{{ img }}" />
+    {% endif %}
+    <style>
+        /* ── Reset ─────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Base layout (shared across all templates) ── */
+        html { height: 100%; }
+        body {
+            min-height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 2rem 1rem 3rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .bio-container {
+            width: 100%;
+            max-width: 680px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+            padding: 2rem 0;
+        }
+        .bio-avatar {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .bio-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .bio-text {
+            text-align: center;
+            max-width: 480px;
+            line-height: 1.6;
+        }
+        .bio-email {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .bio-email svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .bio-links {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .bio-link {
+            display: block;
+            width: 100%;
+            padding: 1rem 1.25rem;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 500;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .bio-link:hover {
+            transform: translateY(-2px);
+        }
+        .bio-social-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            padding-top: 0.5rem;
+        }
+        .bio-social-link {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform 0.15s ease;
+        }
+        .bio-social-link:hover { transform: scale(1.15); }
+        .bio-social-link svg { width: 22px; height: 22px; }
+
+        /* ── TEMPLATE: minimal ─────────────────────────── */
+        .template-minimal {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: #1a1a1a;
+        }
+        .template-minimal .bio-name { color: #1a1a1a; }
+        .template-minimal .bio-text { color: #555; font-size: 0.95rem; }
+        .template-minimal .bio-link {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            color: #1a1a1a;
+            font-size: 0.95rem;
+        }
+        .template-minimal .bio-link:hover {
+            background: #eaeaea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .template-minimal .bio-social-link { color: #555; border-radius: 50%; }
+        .template-minimal .bio-social-link:hover { color: #1a1a1a; }
+        .template-minimal .bio-email { color: #555; }
+        .template-minimal .bio-email:hover { color: #1a1a1a; }
+
+        /* ── TEMPLATE: bold ────────────────────────────── */
+        body.template-bold { background-color: #1a1a2e; }
+        .template-bold {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            color: #ffffff;
+        }
+        .template-bold .bio-name { color: #ffffff; font-size: 2rem; }
+        .template-bold .bio-text { color: #a0a0a0; font-size: 1rem; }
+        .template-bold .bio-link {
+            background: #ff3366;
+            border: none;
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .template-bold .bio-link:hover {
+            background: #ff1a53;
+            box-shadow: 0 4px 20px rgba(255,51,102,0.4);
+        }
+        .template-bold .bio-social-link {
+            color: #ffffff;
+            background: #222;
+            border-radius: 50%;
+            width: 44px; height: 44px;
+        }
+        .template-bold .bio-social-link:hover { background: #ff3366; }
+        .template-bold .bio-email { color: #a0a0a0; }
+        .template-bold .bio-email:hover { color: #ff3366; }
+
+        /* ── TEMPLATE: rounded ─────────────────────────── */
+        .template-rounded {
+            font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #333;
+        }
+        .template-rounded .bio-name { color: #333; }
+        .template-rounded .bio-text { color: #666; }
+        .template-rounded .bio-avatar {
+            border: 4px solid #fff;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        .template-rounded .bio-link {
+            background: #ffffff;
+            border: none;
+            border-radius: 999px;
+            color: #333;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .template-rounded .bio-link:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+        }
+        .template-rounded .bio-social-link {
+            color: #666;
+            background: #ffffff;
+            border-radius: 50%;
+            width: 44px; height: 44px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+        }
+        .template-rounded .bio-social-link:hover { color: #e91e63; }
+        .template-rounded .bio-email { color: #666; }
+
+        /* ── TEMPLATE: glass ───────────────────────────── */
+        body.template-glass { background-color: #2d1b69; }
+        .template-glass {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #ffffff;
+        }
+        .template-glass .bio-container {
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 2.5rem 2rem;
+            margin-top: 2rem;
+        }
+        .template-glass .bio-name { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .template-glass .bio-text { color: rgba(255,255,255,0.85); }
+        .template-glass .bio-avatar {
+            border: 3px solid rgba(255,255,255,0.4);
+        }
+        .template-glass .bio-link {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            color: #ffffff;
+        }
+        .template-glass .bio-link:hover {
+            background: rgba(255,255,255,0.25);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .template-glass .bio-social-link {
+            color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            width: 44px; height: 44px;
+        }
+        .template-glass .bio-social-link:hover {
+            color: #ffffff;
+            background: rgba(255,255,255,0.25);
+        }
+        .template-glass .bio-email { color: rgba(255,255,255,0.8); }
+        .template-glass .bio-email:hover { color: #ffffff; }
+
+        /* ── TEMPLATE: neon ────────────────────────────── */
+        body.template-neon { background-color: #0a0a0a; }
+        .template-neon {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            color: #e0e0e0;
+        }
+        .template-neon .bio-name {
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0,255,136,0.5), 0 0 40px rgba(0,255,136,0.2);
+        }
+        .template-neon .bio-text { color: #888; }
+        .template-neon .bio-avatar {
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 15px rgba(0,255,136,0.3);
+        }
+        .template-neon .bio-link {
+            background: transparent;
+            border: 1px solid #00ff88;
+            border-radius: 4px;
+            color: #00ff88;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 0 8px rgba(0,255,136,0.15), inset 0 0 8px rgba(0,255,136,0.05);
+        }
+        .template-neon .bio-link:hover {
+            background: rgba(0,255,136,0.1);
+            box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 20px rgba(0,255,136,0.1);
+            text-shadow: 0 0 8px rgba(0,255,136,0.5);
+        }
+        .template-neon .bio-social-link {
+            color: #00ff88;
+            border: 1px solid rgba(0,255,136,0.3);
+            border-radius: 4px;
+            width: 40px; height: 40px;
+        }
+        .template-neon .bio-social-link:hover {
+            box-shadow: 0 0 12px rgba(0,255,136,0.4);
+            color: #ffffff;
+        }
+        .template-neon .bio-email { color: #00ff88; font-family: inherit; font-size: 0.85rem; }
+    </style>
+    {% if !page.page.custom_css.is_empty() %}
+        <style>{{ page.page.custom_css|safe }}</style>
+    {% endif %}
+</head>
+<body class="template-{{ page.page.template_name }}"
+    {% match page.page.background_type.as_str() %}
+        {% when "color" %}
+            {% if page.page.background_value != "#ffffff" %}
+                style="background-color: {{ page.page.background_value }};"
+            {% endif %}
+        {% when "upload" %}
+            style="background-image: url('{{ page.page.background_value }}'); background-size: cover; background-position: center; background-attachment: fixed;"
+        {% when "unsplash" %}
+            style="background-image: url('{{ page.page.background_value }}'); background-size: cover; background-position: center; background-attachment: fixed;"
+        {% when _ %}
+    {% endmatch %}
+>
+    <article class="bio-container">
+        {% if let Some(img) = page.page.profile_image_url %}
+            <img class="bio-avatar" src="{{ img }}" alt="{{ page.page.display_name }}" />
+        {% endif %}
+
+        <h1 class="bio-name">{{ page.page.display_name }}</h1>
+
+        {% if !page.page.bio.is_empty() %}
+            <p class="bio-text">{{ page.page.bio }}</p>
+        {% endif %}
+
+        {% if let Some(email) = page.page.email_address %}
+            <a class="bio-email" href="mailto:{{ email }}">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                {{ email }}
+            </a>
+        {% endif %}
+
+        {% if !active_links.is_empty() %}
+            <nav class="bio-links">
+                {% for link in active_links %}
+                    <a class="bio-link" href="/c/{{ link.id }}" target="_blank" rel="noopener">
+                        {{ link.title }}
+                    </a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+
+        {% if !page.social_links.is_empty() %}
+            <footer class="bio-social-links">
+                {% for social in page.social_links %}
+                    <a class="bio-social-link" href="{{ social.url }}" target="_blank" rel="noopener"
+                       title="{{ social.platform }}" aria-label="{{ social.platform }}">
+                        {% include "bio_social_icon.html" %}
+                    </a>
+                {% endfor %}
+            </footer>
+        {% endif %}
+    </article>
+</body>
+</html>

@@ -5,14 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>
             {% block title %}
-                Linkly
+                {{ app_title }}
             {% endblock %}
-            — Linkly
+            — {{ app_title }}
         </title>
         <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
   />
+        <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.8/bundles/datastar.js"></script>
         <style>
     /* ── Layout ─────────────────────────────────────────── */
     body {
@@ -253,8 +254,7 @@
                 <ul>
                     <li>
                         <a href="/admin/dashboard" class="brand">
-                            🔗 Link
-                            <span class="dot">ly</span>
+                            🔗 {{ app_title }}
                         </a>
                     </li>
                 </ul>
@@ -263,6 +263,17 @@
                         <li>
                             <a href="/admin/dashboard">Dashboard</a>
                         </li>
+                        <li>
+                            <a href="/admin/short-links">Short Links</a>
+                        </li>
+                        <li>
+                            <a href="/admin/bio">Links Pages</a>
+                        </li>
+                        {% if is_admin %}
+                            <li>
+                                <a href="/admin/users">Users</a>
+                            </li>
+                        {% endif %}
                         <li>
                             <a href="/admin/logout">Log out</a>
                         </li>
@@ -273,6 +284,6 @@
         <main class="container">
             {% block content %}{% endblock %}
         </main>
-        <footer class="site-footer">Linkly — internal URL shortener</footer>
+        <footer class="site-footer">{{ app_title }} — internal URL shortener</footer>
     </body>
 </html>

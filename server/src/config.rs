@@ -5,8 +5,12 @@ pub struct AppConfig {
     /// SQLite connection string, e.g. "sqlite:./linkly.db"
     pub database_url: String,
 
-    /// Plain-text admin password loaded from the environment at startup
-    pub admin_password: String,
+    /// Secret key for signing JWT tokens
+    pub jwt_secret: String,
+
+    /// Optional: seed the first admin user on empty database
+    pub seed_admin_email: Option<String>,
+    pub seed_admin_password: Option<String>,
 
     /// Host to bind the HTTP server to, e.g. "0.0.0.0"
     pub host: String,
@@ -18,23 +22,34 @@ pub struct AppConfig {
     /// Must NOT have a trailing slash.
     pub base_url: String,
 
-    /// How many hours an admin session token remains valid
+    /// How many hours an auth token remains valid
     pub session_duration_hours: u64,
 
     /// URL to redirect visitors to when they hit the root path ("/").
-    /// Defaults to "https://secedastudios.com".
-    /// Set ROOT_REDIRECT_URL in the environment to override.
     pub root_redirect_url: String,
+
+    /// S3 configuration (all optional — if any are missing, uploads are disabled)
+    pub s3_bucket: Option<String>,
+    pub s3_region: Option<String>,
+    pub s3_endpoint: Option<String>,
+    pub s3_access_key: Option<String>,
+    pub s3_secret_key: Option<String>,
+
+    /// Unsplash API access key (optional — if missing, Unsplash search is hidden)
+    pub unsplash_access_key: Option<String>,
+
+    /// Application title shown in nav, page titles, and footer. Defaults to "Linkly".
+    pub app_title: String,
 }
 
 impl AppConfig {
     /// Load configuration from environment variables (populated by dotenvy before this is called).
     pub fn from_env() -> Result<Self> {
-        let admin_password = std::env::var("ADMIN_PASSWORD")
-            .context("ADMIN_PASSWORD must be set in the environment or .env file")?;
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .context("JWT_SECRET must be set in the environment or .env file")?;
 
-        if admin_password.trim().is_empty() {
-            anyhow::bail!("ADMIN_PASSWORD must not be empty");
+        if jwt_secret.trim().is_empty() {
+            anyhow::bail!("JWT_SECRET must not be empty");
         }
 
         let port = std::env::var("PORT")
@@ -57,15 +72,44 @@ impl AppConfig {
             .trim_end_matches('/')
             .to_owned();
 
+        let seed_admin_email = std::env::var("SEED_ADMIN_EMAIL").ok().filter(|s| !s.is_empty());
+        let seed_admin_password = std::env::var("SEED_ADMIN_PASSWORD")
+            .or_else(|_| std::env::var("ADMIN_PASSWORD")) // backward compat
+            .ok()
+            .filter(|s| !s.is_empty());
+
         Ok(Self {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite:./linkly.db".into()),
-            admin_password,
+            jwt_secret,
+            seed_admin_email,
+            seed_admin_password,
             host: std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".into()),
             port,
             base_url,
             session_duration_hours,
             root_redirect_url,
+            s3_bucket: std::env::var("S3_BUCKET").ok(),
+            s3_region: std::env::var("S3_REGION").ok(),
+            s3_endpoint: std::env::var("S3_ENDPOINT").ok(),
+            s3_access_key: std::env::var("S3_ACCESS_KEY").ok(),
+            s3_secret_key: std::env::var("S3_SECRET_KEY").ok(),
+            unsplash_access_key: std::env::var("UNSPLASH_ACCESS_KEY").ok(),
+            app_title: std::env::var("APP_TITLE")
+                .unwrap_or_else(|_| "Linkly".into()),
         })
+    }
+
+    /// Returns true if all required S3 credentials are configured.
+    pub fn s3_configured(&self) -> bool {
+        self.s3_bucket.is_some()
+            && self.s3_region.is_some()
+            && self.s3_access_key.is_some()
+            && self.s3_secret_key.is_some()
+    }
+
+    /// Returns true if the Unsplash API key is set.
+    pub fn unsplash_configured(&self) -> bool {
+        self.unsplash_access_key.is_some()
     }
 }

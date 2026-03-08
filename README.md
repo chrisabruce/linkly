@@ -1,37 +1,64 @@
 # Linkly
 
-Linkly is a self-hosted URL shortener built for internal company use. You paste a long link, get a short one, share it, and then come back later to see exactly who clicked it, where they were, what browser they used, and when. That's it — no SaaS subscription, no data leaving your servers, no per-seat pricing.
+Linkly is a self-hosted URL shortener and link-in-bio page builder. Shorten URLs, track clicks with detailed analytics, and create customizable profile pages — all from a single binary backed by SQLite. No SaaS subscription, no data leaving your servers, no per-seat pricing.
 
-It runs as a single small binary (~7 MB), uses a SQLite database that lives right next to it, and serves a clean web interface you can access from any browser. The whole thing is designed to stay out of your way.
+It runs as a single small binary, uses a SQLite database that lives right next to it, and serves a clean web interface built with [Pico CSS](https://picocss.com).
 
 ---
 
-## What it does
+## Features
 
+### URL Shortening
 - Shorten any URL to a compact link like `https://go.yourcompany.com/abc123`
-- Optionally give a link a **title**, **description**, and a **custom code** (e.g. `/q3-report`)
-- Every click is tracked: timestamp, IP address, country, city, browser, OS, device type, and referrer
-- The admin dashboard lists all your links with click counts at a glance
-- The analytics page for each link breaks down clicks by browser, OS, device, country, and referrer with a simple bar chart — plus a full click-by-click history
+- Optionally set a **title**, **description**, and **custom code** (e.g. `/q3-report`)
+- Real-time custom code validation via [Datastar](https://data-star.dev)
+- In-memory link cache for fast redirects
+
+### Link-in-Bio Pages
+- Create Linktree-style profile pages at `https://go.yourcompany.com/your-slug`
+- Five built-in templates: Minimal, Bold, Rounded, Glass, and Neon
+- Add links, social media icons, profile images, and custom CSS
+- Background customization: solid colors, gradients, or Unsplash photos
+- S3-compatible image uploads for profile pictures
+- Per-page analytics with click tracking on individual links
+
+### Analytics
+- Every click is tracked: timestamp, IP, country, city, browser, OS, device type, and referrer
+- Dashboard overview with top links, top bio pages, and recent activity
+- Per-link analytics with breakdown charts for browser, OS, device, country, and referrer
+- Bio page analytics with page views and per-link click counts
+- IP geolocation via [ip-api.com](http://ip-api.com) (optional — works without it)
+
+### Multi-User System
+- JWT-based authentication with role-based access control (admin / user)
+- Self-registration with admin approval workflow
+- Admins can create users directly and optionally force a password change on first login
+- Users see only their own links and pages; admins see everything
+- Ownership tracking on all links and bio pages
+- Argon2id password hashing
+
+### Customization
+- Configurable application title via `APP_TITLE` env var — rebrand to anything you like
 
 ---
 
 ## Requirements
 
 - Linux, macOS, or Windows (WSL works fine)
+- [Rust](https://rustup.rs) stable toolchain (to build from source), or Docker
 - That's it — the binary includes everything, including the database engine
 
 ---
 
 ## Installation
 
-### Option A — build from source
-
-You'll need [Rust](https://rustup.rs) installed (stable toolchain). Then:
+### Option A — Build from source
 
 ```sh
 git clone https://github.com/yourcompany/linkly.git
 cd linkly/server
+cp .env.example .env
+# Edit .env with your settings (see Configuration below)
 make build
 ```
 
@@ -44,17 +71,19 @@ docker build -t linkly .
 docker run -d \
   -p 8080:8080 \
   -v linkly_data:/data \
-  -e ADMIN_PASSWORD="your-strong-password-here" \
+  -e JWT_SECRET="a-long-random-secret" \
+  -e SEED_ADMIN_EMAIL="admin@example.com" \
+  -e SEED_ADMIN_PASSWORD="your-strong-password" \
   -e BASE_URL="https://go.yourcompany.com" \
   -e DATABASE_URL="sqlite:/data/linkly.db" \
   linkly
 ```
 
-The `-v linkly_data:/data` flag mounts a Docker volume at `/data` so the SQLite database survives container restarts and upgrades.
+The `-v linkly_data:/data` flag mounts a Docker volume so the SQLite database survives container restarts.
 
 ---
 
-## Setup
+## Quick Start
 
 **1. Create your config file**
 
@@ -63,28 +92,31 @@ cd server
 cp .env.example .env
 ```
 
-Open `.env` in a text editor. At minimum you must set two things:
+Open `.env` and set at minimum:
 
 ```
-ADMIN_PASSWORD=something-strong-here
+JWT_SECRET=a-long-random-secret-change-this
 BASE_URL=https://go.yourcompany.com
 ```
 
-`BASE_URL` is the public address people will see in their short links. If you're running behind a reverse proxy (nginx, Caddy, etc.), this should be the external URL, not `localhost`.
+Optionally seed an admin account (created automatically on first run):
+
+```
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=changeme
+```
+
+If you skip the seed admin, the first user to register at `/admin/register` automatically becomes the admin.
 
 **2. Run it**
 
 ```sh
 ./linkly
-```
-
-Or if you're using the Makefile from the server directory:
-
-```sh
+# or from the server directory:
 make run
 ```
 
-Linkly will create the database file automatically on first run and print something like:
+Linkly creates the database and runs migrations automatically:
 
 ```
 INFO linkly: Starting Linkly on 0.0.0.0:3000
@@ -94,57 +126,134 @@ INFO linkly: Cache warmed with 0 active link(s)
 INFO linkly: Listening on http://0.0.0.0:3000
 ```
 
-Open your browser to `https://go.yourcompany.com/admin` to access the management panel and log in with the password you set.
+**3. Log in**
+
+Navigate to `https://go.yourcompany.com/admin` and sign in with your seed admin credentials, or register a new account at `/admin/register`.
 
 ---
 
-## Configuration reference
+## Configuration
 
-All configuration is done through the `.env` file (or real environment variables if you prefer).
+All configuration is done through environment variables (typically via a `.env` file).
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `ADMIN_PASSWORD` | **yes** | — | Password for the admin interface |
-| `BASE_URL` | no | `http://localhost:3000` | Public-facing URL of your Linkly instance, used when displaying short links. No trailing slash. |
-| `ROOT_REDIRECT_URL` | no | `https://secedastudios.com` | Where visitors are sent when they hit the root URL `/`. Admins must go directly to `/admin`. |
-| `DATABASE_URL` | no | `sqlite:./linkly.db` | Path to the SQLite database file |
-| `HOST` | no | `0.0.0.0` | Network interface to bind to |
-| `PORT` | no | `3000` | Port to listen on |
-| `SESSION_DURATION_HOURS` | no | `24` | How long you stay logged in before the session expires |
-| `RUST_LOG` | no | `linkly=info` | Log verbosity. Use `linkly=debug` if something is going wrong and you want more detail. |
+### Required
+
+| Variable | Default | Description |
+|---|---|---|
+| `JWT_SECRET` | — | Secret key for signing authentication tokens. Use a long random string. |
+
+### Application
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_TITLE` | `Linkly` | Application name displayed in the nav bar, page titles, and footer. |
+| `BASE_URL` | `http://localhost:3000` | Public-facing URL for generating short links. No trailing slash. |
+| `ROOT_REDIRECT_URL` | — | Where visitors are sent when they hit `/`. Admins go directly to `/admin`. |
+| `DATABASE_URL` | `sqlite:./linkly.db` | Path to the SQLite database file. |
+| `HOST` | `0.0.0.0` | Network interface to bind to. |
+| `PORT` | `3000` | Port to listen on. |
+
+### Authentication
+
+| Variable | Default | Description |
+|---|---|---|
+| `SEED_ADMIN_EMAIL` | — | Email for the seed admin account (created on startup if it doesn't exist). |
+| `SEED_ADMIN_PASSWORD` | — | Password for the seed admin. Also accepts `ADMIN_PASSWORD` for backward compatibility. |
+| `SESSION_DURATION_HOURS` | `24` | How long auth tokens remain valid. |
+
+### S3 Storage (optional — enables image uploads)
+
+| Variable | Description |
+|---|---|
+| `S3_BUCKET` | S3 bucket name |
+| `S3_REGION` | S3 region (e.g. `us-east-1`) |
+| `S3_ENDPOINT` | S3 endpoint URL (use this for S3-compatible services like MinIO or RustFS) |
+| `S3_ACCESS_KEY` | S3 access key |
+| `S3_SECRET_KEY` | S3 secret key |
+
+All five S3 variables must be set to enable image uploads.
+
+### Unsplash (optional — enables background image search)
+
+| Variable | Description |
+|---|---|
+| `UNSPLASH_ACCESS_KEY` | Your Unsplash API access key |
+
+### Logging
+
+| Variable | Default | Description |
+|---|---|---|
+| `RUST_LOG` | `linkly=info,tower_http=info` | Log verbosity. Use `linkly=debug` for more detail. |
 
 ---
 
-## URL routing
+## URL Routing
 
 | Path | Behaviour |
 |---|---|
-| `/` | Redirects visitors to `ROOT_REDIRECT_URL` |
+| `/` | Redirects to `ROOT_REDIRECT_URL` |
+| `/health` | Returns `200 OK` (for uptime checks) |
+| `/:code` | Resolves and redirects a short link |
 | `/admin` | Redirects to `/admin/dashboard` |
 | `/admin/login` | Login page |
-| `/admin/dashboard` | Management dashboard (requires auth) |
-| `/:code` | Resolves and redirects the short link |
-| `/health` | Returns `200 OK` — use this for uptime checks |
-
-Visitors who land on the root URL are immediately sent to the public site. Admins must navigate directly to `/admin`.
-
----
-
-## The admin password
-
-Linkly has no user accounts, no OAuth, and no magic links. There is one password, and whoever has it can create and delete links and see all analytics. Treat it like a shared secret for your team.
-
-**Locally**, you set it in `.env` and that file lives only on your machine. Never commit `.env` to git — the `.gitignore` already excludes it, but it's worth knowing why: if your password ends up in your git history, anyone with access to the repo has it.
-
-**On a server**, environment variables for production deployments should be injected at runtime by the platform or your process manager, not written to a file inside a Docker image. Pass them with `-e` flags to `docker run`, via a `docker-compose.yml` `environment` block, or through your server's secrets manager.
-
-**Choosing a good password** — since this is an internal tool it is easy to be lazy here, but the admin panel is publicly reachable on the internet once deployed. Use something you would not be embarrassed to have guessed. A few random words strung together (`correct-horse-battery-staple` style) is easy to remember and hard to brute-force. Linkly adds a 500ms artificial delay on every failed login attempt to slow down anyone trying to guess.
+| `/admin/register` | Self-registration (requires admin approval) |
+| `/admin/dashboard` | Analytics overview |
+| `/admin/short-links` | Manage short links |
+| `/admin/links/:id/analytics` | Per-link analytics |
+| `/admin/bio` | Manage link-in-bio pages |
+| `/admin/bio/new` | Create a new bio page |
+| `/admin/bio/:id/edit` | Edit a bio page |
+| `/admin/bio/:id/analytics` | Bio page analytics |
+| `/admin/users` | User management (admin only) |
+| `/admin/change-password` | Change your password |
 
 ---
 
-## Running behind a reverse proxy
+## User Management
 
-You almost certainly want to put Linkly behind nginx or Caddy so it gets HTTPS. Here are minimal configs for both.
+### Roles
+
+- **Admin** — can see all links and pages across all users, manage user accounts, approve registrations, and promote/demote users.
+- **User** — can only see and manage their own links and pages.
+
+### First User Setup
+
+You have two options for creating the first admin:
+
+1. **Seed admin** (recommended): Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in your `.env`. The account is created on startup if it doesn't already exist.
+2. **Self-registration**: If no seed admin is configured, the first user to register at `/admin/register` automatically becomes an admin and is auto-approved.
+
+### Adding Users
+
+- **Admin creates users**: From `/admin/users`, admins can create accounts with a specific role, set approval status, and optionally check "Force password change on login" to require the user to set their own password.
+- **Self-registration**: Users can register at `/admin/register`. Their account is created in a "pending" state and must be approved by an admin before they can log in.
+
+### Force Password Change
+
+When an admin creates a user with "Force password change" enabled, the user is redirected to a password change form immediately after login and cannot access any other page until they set a new password.
+
+---
+
+## Link-in-Bio Pages
+
+Bio pages are customizable profile pages (similar to Linktree) served at `/:slug`. Each page includes:
+
+- Display name and bio text
+- Profile image (uploaded via S3 or pasted URL)
+- Background (solid color, gradient, or Unsplash photo)
+- Ordered list of links (each individually toggleable)
+- Social media icons (Twitter/X, Instagram, GitHub, LinkedIn, YouTube, TikTok, and more)
+- Email contact link
+- Custom CSS for advanced styling
+- Published/draft toggle
+
+Five built-in templates control the visual style: **Minimal**, **Bold**, **Rounded**, **Glass**, and **Neon**.
+
+---
+
+## Running Behind a Reverse Proxy
+
+You almost certainly want HTTPS in production. Here are minimal configs for common reverse proxies.
 
 **Caddy** (recommended — handles certificates automatically):
 
@@ -176,7 +285,7 @@ The `X-Forwarded-For` header is important — Linkly reads it to get the real vi
 
 ---
 
-## Running as a system service
+## Running as a System Service
 
 **systemd (Linux)**
 
@@ -207,52 +316,46 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now linkly
 ```
 
-It's a good idea to create a dedicated `linkly` user with no login shell and make sure the working directory is owned by that user, so the database file lands somewhere predictable and safe.
+---
+
+## Makefile Targets
+
+Run these from the `server/` directory:
+
+| Target | Description |
+|---|---|
+| `make build` | Compile a release binary |
+| `make run` | Build and run the release binary |
+| `make dev` | Run in debug mode with verbose logging |
+| `make setup` | Create `.env` from `.env.example` |
+| `make check` | Type-check without building |
+| `make fmt` | Format source code |
+| `make lint` | Run clippy with warnings as errors |
+| `make test` | Run the test suite |
+| `make clean` | Remove build artifacts |
+| `make install` | Install the binary to `/usr/local/bin` |
 
 ---
 
-## Using Linkly day-to-day
+## Data and Privacy
 
-### Creating a short link
+Everything — links, clicks, users, sessions — lives in the single SQLite file specified by `DATABASE_URL`. There is no external database, no cloud sync, and no telemetry. The only external network calls Linkly makes are:
 
-1. Log in at `/admin`
-2. Paste your destination URL in the **Destination URL** field
-3. Optionally fill in a **Title** (shown in the dashboard), a **Description** (a note to remind yourself what the link was for — e.g. "Sent in the October newsletter"), and a **Custom code** if you want a memorable slug instead of a random one
-4. Click **Shorten ↗**
-
-Your new short link appears in the table immediately, ready to copy and share.
-
-### Viewing analytics
-
-Click **Analytics** next to any link. You'll see:
-
-- **Total clicks** and **unique IPs** at the top
-- Breakdown charts for browsers, operating systems, device types, referrers, and countries
-- A full history table at the bottom showing every individual click with its timestamp, IP address, location (country, region, city), browser, OS, device, and where the visitor came from
-
-Location data is looked up automatically from the visitor's IP address using a free geolocation service. Private/internal IPs (like `192.168.x.x`) are never sent to the service and will simply show no location.
-
-### Deleting a link
-
-Click **Delete** next to a link in the dashboard. You'll be asked to confirm. Deleting a link also removes all its click history permanently.
-
----
-
-## Data and privacy
-
-Everything — links, clicks, session tokens — lives in the single SQLite file specified by `DATABASE_URL`. There is no external database, no cloud sync, and no telemetry phoning home. The only external network call Linkly ever makes is the IP geolocation lookup for each unique visitor IP, which goes to [ip-api.com](http://ip-api.com). If you'd rather not do that, you can run Linkly in an environment with no outbound HTTP access and location data simply won't be populated.
+- **IP geolocation** via [ip-api.com](http://ip-api.com) for each unique visitor IP (optional — location data simply won't appear if the service is unreachable)
+- **Unsplash API** if configured, only when an admin searches for background images
+- **S3 uploads** if configured, only when an admin uploads a profile image
 
 ---
 
 ## Backup
 
-The entire state of your Linkly instance is in one file. Back it up like any other file:
+The entire state of your Linkly instance is in one file:
 
 ```sh
 cp linkly.db linkly.db.backup
 ```
 
-SQLite is safe to copy while Linkly is running because it uses WAL (write-ahead logging) mode. For a cleaner snapshot you can also use the SQLite CLI:
+SQLite is safe to copy while Linkly is running (WAL mode). For a cleaner snapshot:
 
 ```sh
 sqlite3 linkly.db ".backup linkly.db.backup"
@@ -266,7 +369,7 @@ sqlite3 linkly.db ".backup linkly.db.backup"
 2. Replace the binary with the new version
 3. Start Linkly again
 
-Database migrations run automatically on startup. Your data is never touched destructively — new migrations only add columns or tables.
+Database migrations run automatically on startup. Migrations only add columns or tables — your data is never touched destructively.
 
 ---
 
@@ -276,21 +379,31 @@ Database migrations run automatically on startup. Your data is never touched des
 The link may have been deleted, or it may never have existed. Check the dashboard.
 
 **Location shows "—" for all clicks**
-Linkly couldn't reach the geolocation service. This is expected on servers with restricted outbound access. Everything else (browser, OS, referrer) still works fine.
+Linkly couldn't reach the geolocation service. This is expected on servers with restricted outbound access. Browser, OS, and referrer data still works.
 
-**I forgot my admin password**
-Edit your `.env` file (or update the environment variable however your platform manages them), change `ADMIN_PASSWORD` to a new value, and restart Linkly. Any existing sessions are invalidated on restart.
-
-**Linkly won't start — "ADMIN_PASSWORD must be set"**
-The server refuses to start without a password configured. Make sure your `.env` file exists and has `ADMIN_PASSWORD` set to something non-empty, or that the environment variable is injected by your process manager before the binary starts.
+**I forgot my password**
+If you have `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` set, update the password value in `.env` and the seed account will be recreated on next startup (only if the email doesn't already exist — you may need to delete the user from the DB first). Alternatively, ask another admin to reset your account from the Users page.
 
 **The database file is getting large**
-The click history is the main culprit. You can prune old clicks directly with the SQLite CLI:
+Click history is the main culprit. Prune old data with:
 
 ```sh
 sqlite3 linkly.db "DELETE FROM clicks WHERE clicked_at < datetime('now', '-6 months');"
+sqlite3 linkly.db "DELETE FROM bio_link_clicks WHERE clicked_at < datetime('now', '-6 months');"
+sqlite3 linkly.db "DELETE FROM bio_page_views WHERE viewed_at < datetime('now', '-6 months');"
 sqlite3 linkly.db "VACUUM;"
 ```
+
+---
+
+## Tech Stack
+
+- **Backend:** Rust with [Axum](https://github.com/tokio-rs/axum) 0.7
+- **Database:** SQLite via [SQLx](https://github.com/launchbadge/sqlx) 0.7 (with embedded migrations)
+- **Templates:** [Askama](https://github.com/djc/askama) 0.12
+- **Frontend:** [Pico CSS](https://picocss.com) 2 + [Datastar](https://data-star.dev) 1.0
+- **Auth:** JWT ([jsonwebtoken](https://github.com/Keats/jsonwebtoken) 9) + [Argon2id](https://github.com/RustCrypto/password-hashes) password hashing
+- **Storage:** [rust-s3](https://github.com/durch/rust-s3) for S3-compatible image uploads
 
 ---
 

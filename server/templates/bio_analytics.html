@@ -1,64 +1,56 @@
 {% extends "base.html" %}
-{% block title %}
-    Analytics —
-    {{ summary.link.short_code }}
-{% endblock %}
+{% block title %}Analytics — {{ analytics.page.display_name }}{% endblock %}
 {% block content %}
     <p style="margin-bottom:0.25rem;">
-        <a href="/admin/short-links">← Back to Short Links</a>
+        <a href="/admin/bio">← Back to Links Pages</a>
     </p>
     <hgroup style="margin-bottom:1.5rem;">
-        <h2 style="margin-bottom:0.25rem;">
-            {% if let Some(t) = summary.link.title %}
-                {{ t }}
-            {% else %}
-                {{ summary.link.short_code }}
-            {% endif %}
-        </h2>
+        <h2 style="margin-bottom:0.25rem;">{{ analytics.page.display_name }}</h2>
         <p style="margin:0;">
-            <a class="short-link" href="/{{ summary.link.short_code }}" target="_blank" rel="noopener">{{ short_url }}</a>
-            &nbsp;
-            →
-            &nbsp;
-            <span style="color:var(--pico-muted-color); font-size:0.88rem; word-break:break-all;">{{ summary.link.original_url }}</span>
+            <a class="short-link" href="/{{ analytics.page.slug }}" target="_blank" rel="noopener">{{ base_url }}/{{ analytics.page.slug }}</a>
         </p>
-        {% if let Some(desc) = summary.link.description %}
-            <p style="margin:0.4rem 0 0 0; font-size:0.88rem; color:var(--pico-muted-color); font-style:italic;">{{ desc }}</p>
-        {% endif %}
     </hgroup>
+
     <!-- ── Stat cards ──────────────────────────────────────────────────────── -->
     <div class="stat-grid">
         <div class="stat-card">
-            <div class="stat-value">{{ summary.total_clicks }}</div>
-            <div class="stat-label">Total Clicks</div>
+            <div class="stat-value">{{ analytics.total_views }}</div>
+            <div class="stat-label">Page Views</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">{{ summary.unique_ips }}</div>
-            <div class="stat-label">Unique IPs</div>
+            <div class="stat-value">{{ analytics.unique_view_ips }}</div>
+            <div class="stat-label">Unique Visitors</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">{{ summary.link.created_at.format("%b %d") }}</div>
+            <div class="stat-value">{{ analytics.total_link_clicks }}</div>
+            <div class="stat-label">Link Clicks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ analytics.page.created_at.format("%b %d") }}</div>
             <div class="stat-label">Created</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value">
-                {% if summary.link.is_active %}
-                    ✓
-                {% else %}
-                    ✕
-                {% endif %}
-            </div>
-            <div class="stat-label">
-                {% if summary.link.is_active %}
-                    Active
-                {% else %}
-                    Inactive
-                {% endif %}
-            </div>
-        </div>
     </div>
+
     <!-- ── Breakdown cards ─────────────────────────────────────────────────── -->
     <div class="breakdown-grid">
+        <!-- Link clicks breakdown -->
+        <div class="breakdown-card">
+            <h4>Clicks per Link</h4>
+            {% if analytics.link_click_counts.is_empty() %}
+                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No links yet.</p>
+            {% else %}
+                {% for lc in analytics.link_click_counts %}
+                    <div class="bar-row">
+                        <span class="bar-label" title="{{ lc.url }}">{{ lc.title }}</span>
+                        <span class="bar-count">{{ lc.click_count }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:{% if max_link_clicks > 0 %}{{ lc.click_count * 100 / max_link_clicks }}{% else %}0{% endif %}%;"></div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
         <!-- Browsers -->
         <div class="breakdown-card">
             <h4>Browsers</h4>
@@ -71,30 +63,12 @@
                         <span class="bar-count">{{ count }}</span>
                     </div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ pct }}%;">
-                        </div>
+                        <div class="bar-fill" style="width:{{ pct }}%;"></div>
                     </div>
                 {% endfor %}
             {% endif %}
         </div>
-        <!-- Operating Systems -->
-        <div class="breakdown-card">
-            <h4>Operating Systems</h4>
-            {% if top_os.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
-            {% else %}
-                {% for (name, count, pct) in top_os %}
-                    <div class="bar-row">
-                        <span class="bar-label">{{ name }}</span>
-                        <span class="bar-count">{{ count }}</span>
-                    </div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ pct }}%;">
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        </div>
+
         <!-- Devices -->
         <div class="breakdown-card">
             <h4>Devices</h4>
@@ -107,12 +81,12 @@
                         <span class="bar-count">{{ count }}</span>
                     </div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ pct }}%;">
-                        </div>
+                        <div class="bar-fill" style="width:{{ pct }}%;"></div>
                     </div>
                 {% endfor %}
             {% endif %}
         </div>
+
         <!-- Top Referrers -->
         <div class="breakdown-card">
             <h4>Top Referrers</h4>
@@ -125,12 +99,12 @@
                         <span class="bar-count">{{ count }}</span>
                     </div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ pct }}%;">
-                        </div>
+                        <div class="bar-fill" style="width:{{ pct }}%;"></div>
                     </div>
                 {% endfor %}
             {% endif %}
         </div>
+
         <!-- Countries -->
         <div class="breakdown-card">
             <h4>Countries</h4>
@@ -143,24 +117,22 @@
                         <span class="bar-count">{{ count }}</span>
                     </div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ pct }}%;">
-                        </div>
+                        <div class="bar-fill" style="width:{{ pct }}%;"></div>
                     </div>
                 {% endfor %}
             {% endif %}
         </div>
     </div>
-    <!-- ── Recent clicks table ─────────────────────────────────────────────── -->
+
+    <!-- ── Recent page views table ─────────────────────────────────────────── -->
     <h3 style="margin-bottom:1rem;">
-        Click History
+        Recent Page Views
         <small style="font-weight:400; font-size:0.8rem; color:var(--pico-muted-color);">
-            (most recent
-            {{ summary.clicks.len() }}
-            events)
+            (most recent {{ analytics.views.len() }} events)
         </small>
     </h3>
-    {% if summary.clicks.is_empty() %}
-        <p style="color:var(--pico-muted-color); text-align:center; padding:3rem 0;">No clicks recorded yet.</p>
+    {% if analytics.views.is_empty() %}
+        <p style="color:var(--pico-muted-color); text-align:center; padding:3rem 0;">No page views yet.</p>
     {% else %}
         <div class="table-scroll">
             <table class="clicks-table">
@@ -176,35 +148,29 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for click in summary.clicks %}
+                    {% for view in analytics.views %}
                         <tr>
-                            <td class="ts">{{ click.clicked_at.format("%Y-%m-%d %H:%M:%S") }}</td>
+                            <td class="ts">{{ view.viewed_at.format("%Y-%m-%d %H:%M:%S") }}</td>
                             <td class="ip">
-                                {% if let Some(ip) = click.ip_address %}
+                                {% if let Some(ip) = view.ip_address %}
                                     {{ ip }}
                                 {% else %}
                                     <span style="color:var(--pico-muted-color);">—</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% let has_country = click.country.is_some() %}
-                                {% let has_region  = click.region.is_some() %}
-                                {% let has_city    = click.city.is_some() %}
+                                {% let has_country = view.country.is_some() %}
+                                {% let has_region  = view.region.is_some() %}
+                                {% let has_city    = view.city.is_some() %}
                                 {% if has_country || has_region || has_city %}
                                     <span style="font-size:0.82rem;">
-                                        {% if let Some(city) = click.city %}
-                                            {{ city }}
-                                            {% if has_region || has_country %}
-                                                ,
-                                            {% endif %}
+                                        {% if let Some(city) = view.city %}
+                                            {{ city }}{% if has_region || has_country %},{% endif %}
                                         {% endif %}
-                                        {% if let Some(region) = click.region %}
-                                            {{ region }}
-                                            {% if has_country %}
-                                                ,
-                                            {% endif %}
+                                        {% if let Some(region) = view.region %}
+                                            {{ region }}{% if has_country %},{% endif %}
                                         {% endif %}
-                                        {% if let Some(country) = click.country %}
+                                        {% if let Some(country) = view.country %}
                                             {{ country }}
                                         {% endif %}
                                     </span>
@@ -213,28 +179,16 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if let Some(b) = click.browser %}
-                                    {{ b }}
-                                {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
-                                {% endif %}
+                                {% if let Some(b) = view.browser %}{{ b }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
                             </td>
                             <td>
-                                {% if let Some(o) = click.os %}
-                                    {{ o }}
-                                {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
-                                {% endif %}
+                                {% if let Some(o) = view.os %}{{ o }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
                             </td>
                             <td>
-                                {% if let Some(d) = click.device_type %}
-                                    {{ d }}
-                                {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
-                                {% endif %}
+                                {% if let Some(d) = view.device_type %}{{ d }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
                             </td>
                             <td class="url-cell">
-                                {% if let Some(r) = click.referer %}
+                                {% if let Some(r) = view.referer %}
                                     <span title="{{ r }}">{{ r }}</span>
                                 {% else %}
                                     <span style="color:var(--pico-muted-color);">direct</span>
