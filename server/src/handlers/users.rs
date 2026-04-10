@@ -1,10 +1,4 @@
-use crate::{
-    auth::AdminUser,
-    db_users,
-    models::User,
-    password,
-    AppState,
-};
+use crate::{auth::AdminUser, db_users, models::User, password, AppState};
 use askama::Template;
 use axum::{
     extract::{Form, Path, State},
@@ -326,7 +320,9 @@ pub async fn edit_user_page(
 
     let user = match db_users::get_user_by_id(&state.db, id).await {
         Ok(Some(u)) => u,
-        Ok(None) => return set_flash_and_redirect(jar, None, Some("User not found."), "/admin/users"),
+        Ok(None) => {
+            return set_flash_and_redirect(jar, None, Some("User not found."), "/admin/users")
+        }
         Err(e) => {
             tracing::error!("Failed to load user {}: {:?}", id, e);
             return set_flash_and_redirect(jar, None, Some("Failed to load user."), "/admin/users");
@@ -359,7 +355,12 @@ pub async fn edit_user(
 
     // Validate
     if email.is_empty() || !email.contains('@') {
-        return set_flash_and_redirect(jar, None, Some("Please enter a valid email address."), &redirect_to);
+        return set_flash_and_redirect(
+            jar,
+            None,
+            Some("Please enter a valid email address."),
+            &redirect_to,
+        );
     }
     if display_name.is_empty() {
         return set_flash_and_redirect(jar, None, Some("Display name is required."), &redirect_to);
@@ -368,7 +369,9 @@ pub async fn edit_user(
     // Load current user to check for email change
     let current_user = match db_users::get_user_by_id(&state.db, id).await {
         Ok(Some(u)) => u,
-        Ok(None) => return set_flash_and_redirect(jar, None, Some("User not found."), "/admin/users"),
+        Ok(None) => {
+            return set_flash_and_redirect(jar, None, Some("User not found."), "/admin/users")
+        }
         Err(e) => {
             tracing::error!("Failed to load user {}: {:?}", id, e);
             return set_flash_and_redirect(jar, None, Some("Internal error."), &redirect_to);
@@ -379,7 +382,12 @@ pub async fn edit_user(
     if email != current_user.email {
         match db_users::get_user_by_email(&state.db, &email).await {
             Ok(Some(_)) => {
-                return set_flash_and_redirect(jar, None, Some("That email is already in use by another account."), &redirect_to);
+                return set_flash_and_redirect(
+                    jar,
+                    None,
+                    Some("That email is already in use by another account."),
+                    &redirect_to,
+                );
             }
             Err(e) => {
                 tracing::error!("DB error checking email: {:?}", e);
@@ -404,8 +412,16 @@ pub async fn edit_user(
 
     // Update all fields
     if let Err(e) = db_users::update_user_full(
-        &state.db, id, &email, &display_name, &role, is_approved, force_password_change,
-    ).await {
+        &state.db,
+        id,
+        &email,
+        &display_name,
+        &role,
+        is_approved,
+        force_password_change,
+    )
+    .await
+    {
         tracing::error!("Failed to update user {}: {:?}", id, e);
         let msg = if e.to_string().contains("UNIQUE") {
             "That email is already in use by another account."
@@ -416,24 +432,50 @@ pub async fn edit_user(
     }
 
     // Handle optional password reset
-    let new_password = form.new_password.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let new_password = form
+        .new_password
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     if let Some(new_pass) = new_password {
         if new_pass.len() < 8 {
-            return set_flash_and_redirect(jar, None, Some("New password must be at least 8 characters."), &redirect_to);
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("New password must be at least 8 characters."),
+                &redirect_to,
+            );
         }
         let confirm = form.new_password_confirm.as_deref().unwrap_or("");
         if new_pass != confirm {
-            return set_flash_and_redirect(jar, None, Some("New passwords do not match."), &redirect_to);
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("New passwords do not match."),
+                &redirect_to,
+            );
         }
 
         let pass = new_pass.to_owned();
         let hash = match tokio::task::spawn_blocking(move || password::hash_password(&pass)).await {
             Ok(Ok(h)) => h,
-            _ => return set_flash_and_redirect(jar, None, Some("Internal error hashing password."), &redirect_to),
+            _ => {
+                return set_flash_and_redirect(
+                    jar,
+                    None,
+                    Some("Internal error hashing password."),
+                    &redirect_to,
+                )
+            }
         };
         if let Err(e) = db_users::update_user_password(&state.db, id, &hash).await {
             tracing::error!("Failed to reset password for user {}: {:?}", id, e);
-            return set_flash_and_redirect(jar, None, Some("Failed to reset password."), &redirect_to);
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("Failed to reset password."),
+                &redirect_to,
+            );
         }
     }
 

@@ -4,6 +4,15 @@ use crate::models::{
 };
 use sqlx::SqlitePool;
 
+type BioClickRow = (
+    String,
+    String,
+    chrono::NaiveDateTime,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 // ── Bio Pages ─────────────────────────────────────────────────────────────
 
 const BIO_PAGE_COLUMNS: &str =
@@ -20,8 +29,8 @@ pub async fn get_all_bio_pages(
     match user_id_filter {
         Some(uid) => {
             sqlx::query_as(&format!(
-                "SELECT {BIO_PAGE_COLUMNS} FROM bio_pages WHERE user_id = ?1 ORDER BY created_at DESC"
-            ))
+            "SELECT {BIO_PAGE_COLUMNS} FROM bio_pages WHERE user_id = ?1 ORDER BY created_at DESC"
+        ))
             .bind(uid)
             .fetch_all(pool)
             .await
@@ -76,10 +85,7 @@ pub async fn get_bio_page_by_slug(
 }
 
 /// Fetch all links for a given bio page, ordered by sort_order.
-pub async fn get_bio_links(
-    pool: &SqlitePool,
-    page_id: i64,
-) -> Result<Vec<BioLink>, sqlx::Error> {
+pub async fn get_bio_links(pool: &SqlitePool, page_id: i64) -> Result<Vec<BioLink>, sqlx::Error> {
     sqlx::query_as(
         "SELECT id, page_id, title, url, sort_order, is_active
          FROM bio_links WHERE page_id = ?1
@@ -173,9 +179,7 @@ pub async fn create_bio_page(
     .last_insert_rowid();
 
     // Safe to unwrap: we just inserted this row
-    get_bio_page_by_id(pool, id)
-        .await
-        .map(|opt| opt.unwrap())
+    get_bio_page_by_id(pool, id).await.map(|opt| opt.unwrap())
 }
 
 /// Update a bio page's core fields.
@@ -353,9 +357,11 @@ pub async fn count_total_bio_link_clicks(
             .fetch_one(pool)
             .await
         }
-        None => sqlx::query_scalar("SELECT COUNT(*) FROM bio_link_clicks")
-            .fetch_one(pool)
-            .await,
+        None => {
+            sqlx::query_scalar("SELECT COUNT(*) FROM bio_link_clicks")
+                .fetch_one(pool)
+                .await
+        }
     }
 }
 
@@ -371,9 +377,11 @@ pub async fn count_bio_pages(
                 .fetch_one(pool)
                 .await
         }
-        None => sqlx::query_scalar("SELECT COUNT(*) FROM bio_pages")
-            .fetch_one(pool)
-            .await,
+        None => {
+            sqlx::query_scalar("SELECT COUNT(*) FROM bio_pages")
+                .fetch_one(pool)
+                .await
+        }
     }
 }
 
@@ -399,7 +407,11 @@ pub async fn top_bio_pages_by_clicks(
     );
 
     let rows: Vec<(String, String, i64)> = if let Some(uid) = bind_uid {
-        sqlx::query_as(&sql).bind(limit).bind(uid).fetch_all(pool).await?
+        sqlx::query_as(&sql)
+            .bind(limit)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
     } else {
         sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
     };
@@ -435,25 +447,28 @@ pub async fn recent_bio_link_clicks(
          LIMIT ?1"
     );
 
-    let rows: Vec<(String, String, chrono::NaiveDateTime, Option<String>, Option<String>, Option<String>)> =
-        if let Some(uid) = bind_uid {
-            sqlx::query_as(&sql).bind(limit).bind(uid).fetch_all(pool).await?
-        } else {
-            sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
-        };
+    let rows: Vec<BioClickRow> = if let Some(uid) = bind_uid {
+        sqlx::query_as(&sql)
+            .bind(limit)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
+    } else {
+        sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
+    };
 
     Ok(rows
         .into_iter()
-        .map(|(link_title, page_slug, clicked_at, country, referer, browser)| {
-            BioLinkClickDetail {
+        .map(
+            |(link_title, page_slug, clicked_at, country, referer, browser)| BioLinkClickDetail {
                 link_title,
                 page_slug,
                 clicked_at,
                 country,
                 referer,
                 browser,
-            }
-        })
+            },
+        )
         .collect())
 }
 

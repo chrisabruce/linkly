@@ -3,7 +3,7 @@
     Profile
 {% endblock %}
 {% block content %}
-    <div style="max-width: 32rem; margin: 2rem auto;">
+    <div class="form-page">
         <hgroup>
             <h2>Your Profile</h2>
             <p>Update your account details.</p>
@@ -27,9 +27,9 @@
                     <input type="text" name="display_name" value="{{ user.display_name }}" required />
                 </label>
 
-                <hr style="margin: 1.5rem 0;" />
-                <h4 style="margin-bottom: 0.75rem;">Change Password</h4>
-                <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem;">
+                <hr class="form-divider" />
+                <h4 class="form-section-title">Change Password</h4>
+                <p class="form-section-note">
                     Leave blank to keep your current password.
                 </p>
 
@@ -42,7 +42,7 @@
                         autocomplete="current-password"
                     />
                 </label>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <div class="form-grid-2">
                     <label>
                         New Password
                         <input
@@ -65,7 +65,9 @@
                     </label>
                 </div>
 
-                <button type="submit" style="margin-top: 1rem;">Save Changes</button>
+                <div class="form-actions">
+                    <button type="submit">Save Changes</button>
+                </div>
             </form>
         </article>
     </div>

@@ -38,6 +38,9 @@ pub struct AppConfig {
     /// Unsplash API access key (optional — if missing, Unsplash search is hidden)
     pub unsplash_access_key: Option<String>,
 
+    /// Pexels API key (optional — combined with Unsplash for image search)
+    pub pexels_api_key: Option<String>,
+
     /// Application title shown in nav, page titles, and footer. Defaults to "Linkly".
     pub app_title: String,
 }
@@ -72,7 +75,9 @@ impl AppConfig {
             .trim_end_matches('/')
             .to_owned();
 
-        let seed_admin_email = std::env::var("SEED_ADMIN_EMAIL").ok().filter(|s| !s.is_empty());
+        let seed_admin_email = std::env::var("SEED_ADMIN_EMAIL")
+            .ok()
+            .filter(|s| !s.is_empty());
         let seed_admin_password = std::env::var("SEED_ADMIN_PASSWORD")
             .or_else(|_| std::env::var("ADMIN_PASSWORD")) // backward compat
             .ok()
@@ -95,8 +100,8 @@ impl AppConfig {
             s3_access_key: std::env::var("S3_ACCESS_KEY").ok(),
             s3_secret_key: std::env::var("S3_SECRET_KEY").ok(),
             unsplash_access_key: std::env::var("UNSPLASH_ACCESS_KEY").ok(),
-            app_title: std::env::var("APP_TITLE")
-                .unwrap_or_else(|_| "Linkly".into()),
+            pexels_api_key: std::env::var("PEXELS_API_KEY").ok(),
+            app_title: std::env::var("APP_TITLE").unwrap_or_else(|_| "Linkly".into()),
         })
     }
 
@@ -111,5 +116,10 @@ impl AppConfig {
     /// Returns true if the Unsplash API key is set.
     pub fn unsplash_configured(&self) -> bool {
         self.unsplash_access_key.is_some()
+    }
+
+    /// Returns true if any image search provider is configured.
+    pub fn image_search_configured(&self) -> bool {
+        self.unsplash_access_key.is_some() || self.pexels_api_key.is_some()
     }
 }

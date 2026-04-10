@@ -4,11 +4,11 @@
 {% endblock %}
 {% block nav_extra %}{% endblock %}
 {% block content %}
-    <div style="max-width: 22rem; margin: 4rem auto;">
+    <div class="auth-page">
         <article>
             <header>
                 <hgroup>
-                    <h2>🔗 {{ app_title }}</h2>
+                    <h2 class="auth-brand">{{ app_title }}</h2>
                     <p>Sign in to manage your links</p>
                 </hgroup>
             </header>
@@ -39,9 +39,9 @@
                         required
                     />
                 </label>
-                <button type="submit" style="width:100%;">Sign in</button>
+                <button type="submit">Sign in</button>
             </form>
-            <p style="text-align:center; font-size:0.85rem; margin-top:1rem;">
+            <p class="auth-footer">
                 Don't have an account? <a href="/admin/register">Register</a>
             </p>
         </article>

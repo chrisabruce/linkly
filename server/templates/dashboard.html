@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-    <!-- ── Overview stat cards ──────────────────────────────────────────────── -->
     <div class="stat-grid">
         <div class="stat-card">
             <div class="stat-value">{{ total_short_links }}</div>
@@ -21,18 +20,16 @@
         </div>
     </div>
 
-    <!-- ── Top performers ──────────────────────────────────────────────────── -->
     <div class="breakdown-grid">
-        <!-- Top Short Links -->
         <div class="breakdown-card">
             <h4>Top Short Links</h4>
             {% if top_short_links.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+                <p class="empty-state-inline">No data yet.</p>
             {% else %}
                 {% for link in top_short_links %}
                     <div class="bar-row">
                         <span class="bar-label">
-                            <a href="/admin/links/{{ link.id }}/analytics" style="text-decoration:none; color:inherit;">
+                            <a href="/admin/links/{{ link.id }}/analytics">
                                 {% if let Some(t) = link.title %}{{ t }}{% else %}{{ link.short_code }}{% endif %}
                             </a>
                         </span>
@@ -45,16 +42,15 @@
             {% endif %}
         </div>
 
-        <!-- Top Links Pages -->
         <div class="breakdown-card">
             <h4>Top Links Pages</h4>
             {% if top_bio_pages.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+                <p class="empty-state-inline">No data yet.</p>
             {% else %}
                 {% for page in top_bio_pages %}
                     <div class="bar-row">
                         <span class="bar-label">
-                            <a href="/{{ page.slug }}" target="_blank" style="text-decoration:none; color:inherit;">{{ page.display_name }}</a>
+                            <a href="/{{ page.slug }}" target="_blank">{{ page.display_name }}</a>
                         </span>
                         <span class="bar-count">{{ page.click_count }}</span>
                     </div>
@@ -66,11 +62,10 @@
         </div>
     </div>
 
-    <!-- ── Recent activity ─────────────────────────────────────────────────── -->
-    <h3 style="margin-bottom:1rem;">Recent Activity</h3>
+    <h3 class="section-title">Recent Activity</h3>
 
     {% if recent_activity.is_empty() %}
-        <p style="color:var(--pico-muted-color); text-align:center; padding:3rem 0;">No activity yet.</p>
+        <p class="empty-state">No activity yet.</p>
     {% else %}
         <div class="table-scroll">
             <table class="clicks-table">
@@ -89,8 +84,7 @@
                         <tr>
                             <td class="ts">{{ click.time }}</td>
                             <td>
-                                <span class="badge {% if click.is_short_link %}active{% else %}inactive{% endif %}"
-                                      style="{% if !click.is_short_link %}background:#e0f2fe;color:#0369a1;{% endif %}">
+                                <span class="badge {% if click.is_short_link %}active{% else %}info{% endif %}">
                                     {% if click.is_short_link %}Short Link{% else %}Links Page{% endif %}
                                 </span>
                             </td>
@@ -99,21 +93,21 @@
                                 {% if let Some(c) = click.country %}
                                     {{ c }}
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
+                                    <span class="placeholder">—</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if let Some(b) = click.browser %}
                                     {{ b }}
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
+                                    <span class="placeholder">—</span>
                                 {% endif %}
                             </td>
                             <td class="url-cell">
                                 {% if let Some(r) = click.referer %}
                                     <span title="{{ r }}">{{ r }}</span>
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">direct</span>
+                                    <span class="placeholder">direct</span>
                                 {% endif %}
                             </td>
                         </tr>

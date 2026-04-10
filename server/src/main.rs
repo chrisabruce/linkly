@@ -82,7 +82,8 @@ async fn main() -> anyhow::Result<()> {
             None => {
                 let hash = password::hash_password(pass)
                     .map_err(|e| anyhow::anyhow!("Failed to hash seed password: {}", e))?;
-                let admin = db_users::create_user(&db, email, "Admin", &hash, "admin", true, false).await?;
+                let admin =
+                    db_users::create_user(&db, email, "Admin", &hash, "admin", true, false).await?;
                 tracing::info!("Seeded admin user: {}", email);
 
                 // Attribute existing unowned links/pages to the seed admin
@@ -154,12 +155,16 @@ async fn main() -> anyhow::Result<()> {
         .route("/bio/validate-slug", get(handlers::bio::validate_slug))
         .route("/bio/upload", post(handlers::bio::upload_image))
         .route("/bio/unsplash", get(handlers::bio::search_unsplash))
+        .route("/bio/search-images", get(handlers::bio::search_images))
         .route("/bio/:id/edit", get(handlers::bio::edit_bio_page))
         .route("/bio/:id/analytics", get(handlers::bio::bio_analytics))
         .route("/bio/:id", post(handlers::bio::update_bio_page))
         .route("/bio/:id/delete", post(handlers::bio::delete_bio_page))
         // User management (admin only)
-        .route("/users", get(handlers::users::list_users).post(handlers::users::create_user))
+        .route(
+            "/users",
+            get(handlers::users::list_users).post(handlers::users::create_user),
+        )
         .route("/users/:id/approve", post(handlers::users::approve_user))
         .route("/users/:id/role", post(handlers::users::change_role))
         .route("/users/:id/delete", post(handlers::users::delete_user))

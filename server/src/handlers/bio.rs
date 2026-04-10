@@ -1,10 +1,9 @@
 use crate::{
     auth::AuthUser,
-    db,
-    db_bio,
+    config::AppConfig,
+    db, db_bio,
     models::{BioPage, BioPageAnalytics, BioPageFull},
-    s3 as s3_util,
-    AppState,
+    s3 as s3_util, AppState,
 };
 use askama::Template;
 use axum::{
@@ -42,7 +41,7 @@ struct BioFormTemplate {
     page: Option<BioPageFull>,
     base_url: String,
     s3_enabled: bool,
-    unsplash_enabled: bool,
+    image_search_enabled: bool,
     flash_error: Option<String>,
     templates: Vec<(&'static str, &'static str)>,
     social_platforms: Vec<(&'static str, &'static str)>,
@@ -83,18 +82,19 @@ pub struct BioPageForm {
 }
 
 #[derive(Deserialize)]
-pub struct UnsplashQuery {
+pub struct ImageSearchQuery {
     q: String,
     page: Option<u32>,
 }
 
 #[derive(Serialize)]
-struct UnsplashResult {
+struct ImageResult {
     url_regular: String,
     url_small: String,
     description: String,
     author: String,
     author_url: String,
+    source: &'static str,
 }
 
 #[derive(Serialize)]
@@ -125,6 +125,14 @@ const TEMPLATE_CHOICES: &[(&str, &str)] = &[
     ("rounded", "Rounded"),
     ("glass", "Glass"),
     ("neon", "Neon"),
+    ("pebble", "Pebble"),
+    ("sunset", "Sunset"),
+    ("mono", "Mono"),
+    ("cyber", "Cyber"),
+    ("candy", "Candy"),
+    ("leaf", "Leaf"),
+    ("iris", "Iris"),
+    ("brutalist", "Brutalist"),
 ];
 
 const SOCIAL_PLATFORMS: &[(&str, &str)] = &[
@@ -170,13 +178,21 @@ pub async fn list_bio_pages(
         .max_age(time::Duration::seconds(0))
         .build();
 
-    let user_filter = if auth.is_admin() { None } else { Some(auth.user_id) };
+    let user_filter = if auth.is_admin() {
+        None
+    } else {
+        Some(auth.user_id)
+    };
 
     let pages = match db_bio::get_all_bio_pages(&state.db, user_filter).await {
         Ok(p) => p,
         Err(e) => {
             tracing::error!("Failed to load bio pages: {:?}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load bio pages").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load bio pages",
+            )
+                .into_response();
         }
     };
 
@@ -193,15 +209,12 @@ pub async fn list_bio_pages(
 }
 
 /// GET /admin/bio/new
-pub async fn new_bio_page(
-    auth: AuthUser,
-    State(state): State<Arc<AppState>>,
-) -> Response {
+pub async fn new_bio_page(auth: AuthUser, State(state): State<Arc<AppState>>) -> Response {
     BioFormTemplate {
         page: None,
         base_url: state.config.base_url.clone(),
         s3_enabled: state.config.s3_configured(),
-        unsplash_enabled: state.config.unsplash_configured(),
+        image_search_enabled: state.config.image_search_configured(),
         flash_error: None,
         templates: TEMPLATE_CHOICES.to_vec(),
         social_platforms: SOCIAL_PLATFORMS.to_vec(),
@@ -240,7 +253,11 @@ pub async fn create_bio_page(
         }
         Ok(None) => {}
         Err(e) => {
-            tracing::error!("DB error checking short code collision for '{}': {:?}", slug, e);
+            tracing::error!(
+                "DB error checking short code collision for '{}': {:?}",
+                slug,
+                e
+            );
         }
     }
 
@@ -292,10 +309,21 @@ pub async fn create_bio_page(
     );
 
     if let Err(e) = db_bio::update_bio_page(
-        &state.db, id, &slug, form.display_name.trim(), bio,
-        profile_url, bg_type, bg_value, &form.template_name,
-        custom_css, email, is_published,
-    ).await {
+        &state.db,
+        id,
+        &slug,
+        form.display_name.trim(),
+        bio,
+        profile_url,
+        bg_type,
+        bg_value,
+        &form.template_name,
+        custom_css,
+        email,
+        is_published,
+    )
+    .await
+    {
         tracing::error!("Failed to update links page after create {}: {:?}", id, e);
     }
 
@@ -357,7 +385,7 @@ pub async fn edit_bio_page(
                 page: Some(page_full),
                 base_url: state.config.base_url.clone(),
                 s3_enabled: state.config.s3_configured(),
-                unsplash_enabled: state.config.unsplash_configured(),
+                image_search_enabled: state.config.image_search_configured(),
                 flash_error,
                 templates: TEMPLATE_CHOICES.to_vec(),
                 social_platforms: SOCIAL_PLATFORMS.to_vec(),
@@ -411,7 +439,11 @@ pub async fn update_bio_page(
         }
         Ok(None) => {}
         Err(e) => {
-            tracing::error!("DB error checking short code collision for '{}': {:?}", slug, e);
+            tracing::error!(
+                "DB error checking short code collision for '{}': {:?}",
+                slug,
+                e
+            );
         }
     }
 
@@ -519,15 +551,16 @@ pub async fn delete_bio_page(
     }
 
     match db_bio::delete_bio_page(&state.db, id).await {
-        Ok(true) => {
-            set_flash_and_redirect(jar, Some("Links page deleted."), None, "/admin/bio")
-        }
-        Ok(false) => {
-            set_flash_and_redirect(jar, None, Some("Links page not found."), "/admin/bio")
-        }
+        Ok(true) => set_flash_and_redirect(jar, Some("Links page deleted."), None, "/admin/bio"),
+        Ok(false) => set_flash_and_redirect(jar, None, Some("Links page not found."), "/admin/bio"),
         Err(e) => {
             tracing::error!("Failed to delete bio page {}: {:?}", id, e);
-            set_flash_and_redirect(jar, None, Some("Failed to delete links page."), "/admin/bio")
+            set_flash_and_redirect(
+                jar,
+                None,
+                Some("Failed to delete links page."),
+                "/admin/bio",
+            )
         }
     }
 }
@@ -545,7 +578,11 @@ pub async fn bio_analytics(
         }
         Err(e) => {
             tracing::error!("Failed to load analytics for bio page {}: {:?}", id, e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load analytics").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load analytics",
+            )
+                .into_response();
         }
     };
 
@@ -664,48 +701,157 @@ pub async fn upload_image(
 }
 
 /// GET /admin/bio/unsplash?q=nature&page=1
-/// Proxies the Unsplash search API and returns simplified JSON.
+/// Kept for backward compatibility — delegates to the unified search.
 pub async fn search_unsplash(
+    auth: AuthUser,
+    state: State<Arc<AppState>>,
+    query: Query<ImageSearchQuery>,
+) -> Response {
+    search_images(auth, state, query).await
+}
+
+/// GET /admin/bio/search-images?q=nature&page=1
+/// Searches configured image providers (Pexels + Unsplash) concurrently and returns
+/// interleaved results for variety.
+pub async fn search_images(
     _auth: AuthUser,
     State(state): State<Arc<AppState>>,
-    Query(query): Query<UnsplashQuery>,
+    Query(query): Query<ImageSearchQuery>,
 ) -> Response {
-    let access_key = match &state.config.unsplash_access_key {
-        Some(k) => k,
-        None => {
-            return (StatusCode::BAD_REQUEST, "Unsplash not configured").into_response();
+    if !state.config.image_search_configured() {
+        return (
+            StatusCode::BAD_REQUEST,
+            "No image search provider configured",
+        )
+            .into_response();
+    }
+
+    let page = query.page.unwrap_or(1);
+    let has_both =
+        state.config.pexels_api_key.is_some() && state.config.unsplash_access_key.is_some();
+    let per_page: u32 = if has_both { 8 } else { 15 };
+    let client = reqwest::Client::new();
+
+    // Query both providers concurrently
+    let (pexels, unsplash) = tokio::join!(
+        fetch_pexels(&client, &state.config, &query.q, page, per_page),
+        fetch_unsplash(&client, &state.config, &query.q, page, per_page),
+    );
+
+    let results = if has_both && !pexels.is_empty() && !unsplash.is_empty() {
+        interleave(pexels, unsplash, 2)
+    } else {
+        let mut combined = pexels;
+        combined.extend(unsplash);
+        combined
+    };
+
+    Json(results).into_response()
+}
+
+/// Fetch image results from the Pexels API. Returns an empty vec if unconfigured or on error.
+async fn fetch_pexels(
+    client: &reqwest::Client,
+    config: &AppConfig,
+    query: &str,
+    page: u32,
+    per_page: u32,
+) -> Vec<ImageResult> {
+    let Some(key) = &config.pexels_api_key else {
+        return Vec::new();
+    };
+
+    let per_page = per_page.to_string();
+    let page = page.to_string();
+
+    let r = match client
+        .get("https://api.pexels.com/v1/search")
+        .query(&[
+            ("query", query),
+            ("page", &page),
+            ("per_page", &per_page),
+            ("orientation", "landscape"),
+        ])
+        .header("Authorization", key.as_str())
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Pexels API error: {e:?}");
+            return Vec::new();
         }
     };
 
-    let page = query.page.unwrap_or(1);
-    let client = reqwest::Client::new();
-    let resp = client
-        .get("https://api.unsplash.com/search/photos")
-        .query(&[
-            ("query", query.q.as_str()),
-            ("page", &page.to_string()),
-            ("per_page", "12"),
-            ("orientation", "landscape"),
-        ])
-        .header("Authorization", format!("Client-ID {}", access_key))
-        .send()
-        .await;
-
-    match resp {
-        Ok(r) => {
-            let body: serde_json::Value = r.json().await.unwrap_or_default();
-            let results: Vec<UnsplashResult> = body["results"]
-                .as_array()
-                .unwrap_or(&vec![])
+    let body: serde_json::Value = r.json().await.unwrap_or_default();
+    body["photos"]
+        .as_array()
+        .map(|photos| {
+            photos
                 .iter()
                 .filter_map(|item| {
-                    Some(UnsplashResult {
+                    Some(ImageResult {
+                        url_regular: item["src"]["large2x"].as_str()?.to_owned(),
+                        url_small: item["src"]["medium"].as_str()?.to_owned(),
+                        description: item["alt"].as_str().unwrap_or("").to_owned(),
+                        author: item["photographer"]
+                            .as_str()
+                            .unwrap_or("Unknown")
+                            .to_owned(),
+                        author_url: item["photographer_url"].as_str().unwrap_or("").to_owned(),
+                        source: "Pexels",
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Fetch image results from the Unsplash API. Returns an empty vec if unconfigured or on error.
+async fn fetch_unsplash(
+    client: &reqwest::Client,
+    config: &AppConfig,
+    query: &str,
+    page: u32,
+    per_page: u32,
+) -> Vec<ImageResult> {
+    let Some(key) = &config.unsplash_access_key else {
+        return Vec::new();
+    };
+
+    let per_page = per_page.to_string();
+    let page = page.to_string();
+
+    let r = match client
+        .get("https://api.unsplash.com/search/photos")
+        .query(&[
+            ("query", query),
+            ("page", &page),
+            ("per_page", &per_page),
+            ("orientation", "landscape"),
+        ])
+        .header("Authorization", format!("Client-ID {key}"))
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Unsplash API error: {e:?}");
+            return Vec::new();
+        }
+    };
+
+    let body: serde_json::Value = r.json().await.unwrap_or_default();
+    body["results"]
+        .as_array()
+        .map(|results| {
+            results
+                .iter()
+                .filter_map(|item| {
+                    Some(ImageResult {
                         url_regular: item["urls"]["regular"].as_str()?.to_owned(),
                         url_small: item["urls"]["small"].as_str()?.to_owned(),
-                        description: item["alt_description"]
-                            .as_str()
-                            .unwrap_or("")
-                            .to_owned(),
+                        description: item["alt_description"].as_str().unwrap_or("").to_owned(),
                         author: item["user"]["name"]
                             .as_str()
                             .unwrap_or("Unknown")
@@ -714,16 +860,29 @@ pub async fn search_unsplash(
                             .as_str()
                             .unwrap_or("")
                             .to_owned(),
+                        source: "Unsplash",
                     })
                 })
-                .collect();
-            Json(results).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Unsplash API error: {:?}", e);
-            (StatusCode::BAD_GATEWAY, "Unsplash search failed").into_response()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Interleave two vectors by taking `chunk` items from each alternately.
+/// Consumes both vectors without cloning.
+fn interleave(a: Vec<ImageResult>, b: Vec<ImageResult>, chunk: usize) -> Vec<ImageResult> {
+    let mut result = Vec::with_capacity(a.len() + b.len());
+    let mut a = a.into_iter();
+    let mut b = b.into_iter();
+    loop {
+        let before = result.len();
+        result.extend(a.by_ref().take(chunk));
+        result.extend(b.by_ref().take(chunk));
+        if result.len() == before {
+            break;
         }
     }
+    result
 }
 
 // ── Datastar validation endpoints ─────────────────────────────────────────
@@ -742,42 +901,64 @@ pub async fn validate_slug(
 ) -> impl IntoResponse {
     // Datastar sends signals as JSON in a single `datastar` query param:
     // ?datastar={"slug":"value","currentid":123}
-    let signals = q.datastar
+    let signals = q
+        .datastar
         .as_deref()
         .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok());
-    let slug = signals.as_ref()
+    let slug = signals
+        .as_ref()
         .and_then(|v| v.get("slug")?.as_str().map(String::from))
         .unwrap_or_default();
-    let current_id = signals.as_ref()
-        .and_then(|v| v.get("currentid")?.as_i64());
+    let current_id = signals.as_ref().and_then(|v| v.get("currentid")?.as_i64());
     let slug = slug.trim().to_lowercase();
     tracing::info!("validate_slug called with: {:?}", slug);
 
     let icon_style = r#"position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); font-size:1.1rem; pointer-events:none;"#;
 
     let fragment = if slug.is_empty() {
-        format!(r#"<span id="slug-validation" style="{}"></span>"#, icon_style)
+        format!(
+            r#"<span id="slug-validation" style="{}"></span>"#,
+            icon_style
+        )
     } else if !slug.chars().all(|c| c.is_alphanumeric() || c == '-') {
-        format!(r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#, icon_style)
+        format!(
+            r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#,
+            icon_style
+        )
     } else if let Ok(Some(_)) = db::get_link_by_code(&state.db, &slug).await {
-        format!(r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#, icon_style)
+        format!(
+            r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#,
+            icon_style
+        )
     } else {
         // Check other bio page slugs (skip current page if editing)
         match db_bio::get_bio_page_by_slug(&state.db, &slug).await {
             Ok(Some(existing)) if current_id != Some(existing.id) => {
-                format!(r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#, icon_style)
+                format!(
+                    r#"<span id="slug-validation" style="{} color:#dc2626;">&#10007;</span>"#,
+                    icon_style
+                )
             }
             Err(e) => {
                 tracing::error!("DB error checking slug '{}': {:?}", slug, e);
-                format!(r#"<span id="slug-validation" style="{} color:#16a34a;">&#10003;</span>"#, icon_style)
+                format!(
+                    r#"<span id="slug-validation" style="{} color:#16a34a;">&#10003;</span>"#,
+                    icon_style
+                )
             }
             _ => {
-                format!(r#"<span id="slug-validation" style="{} color:#16a34a;">&#10003;</span>"#, icon_style)
+                format!(
+                    r#"<span id="slug-validation" style="{} color:#16a34a;">&#10003;</span>"#,
+                    icon_style
+                )
             }
         }
     };
 
-    tracing::info!("validate_slug responding with fragment: {}", &fragment[..fragment.len().min(80)]);
+    tracing::info!(
+        "validate_slug responding with fragment: {}",
+        &fragment[..fragment.len().min(80)]
+    );
     datastar_patch(fragment)
 }
 
@@ -785,11 +966,11 @@ pub async fn validate_slug(
 
 /// Build a Datastar SSE `datastar-patch-elements` response from an HTML fragment.
 /// Sends a single SSE event and closes the stream (no keep-alive).
-fn datastar_patch(fragment: String) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
+fn datastar_patch(
+    fragment: String,
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let data = format!("elements {}", fragment);
-    let event = Event::default()
-        .event("datastar-patch-elements")
-        .data(data);
+    let event = Event::default().event("datastar-patch-elements").data(data);
     Sse::new(tokio_stream::once(Ok(event)))
 }
 

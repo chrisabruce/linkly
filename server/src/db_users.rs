@@ -5,7 +5,10 @@ const USER_COLUMNS: &str =
     "id, email, display_name, password_hash, role, is_approved, created_at, updated_at, force_password_change";
 
 /// Find a user by email (for login).
-pub async fn get_user_by_email(pool: &SqlitePool, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn get_user_by_email(
+    pool: &SqlitePool,
+    email: &str,
+) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as(&format!(
         "SELECT {USER_COLUMNS} FROM users WHERE email = ?1"
     ))
@@ -16,12 +19,10 @@ pub async fn get_user_by_email(pool: &SqlitePool, email: &str) -> Result<Option<
 
 /// Find a user by ID.
 pub async fn get_user_by_id(pool: &SqlitePool, id: i64) -> Result<Option<User>, sqlx::Error> {
-    sqlx::query_as(&format!(
-        "SELECT {USER_COLUMNS} FROM users WHERE id = ?1"
-    ))
-    .bind(id)
-    .fetch_optional(pool)
-    .await
+    sqlx::query_as(&format!("SELECT {USER_COLUMNS} FROM users WHERE id = ?1"))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
 }
 
 /// Create a new user. Returns the created row.
@@ -83,7 +84,11 @@ pub async fn approve_user(pool: &SqlitePool, user_id: i64) -> Result<bool, sqlx:
 }
 
 /// Change a user's role (admin action).
-pub async fn set_user_role(pool: &SqlitePool, user_id: i64, role: &str) -> Result<bool, sqlx::Error> {
+pub async fn set_user_role(
+    pool: &SqlitePool,
+    user_id: i64,
+    role: &str,
+) -> Result<bool, sqlx::Error> {
     let affected = sqlx::query(
         "UPDATE users SET role = ?1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?2",
     )

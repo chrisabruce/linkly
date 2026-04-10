@@ -15,12 +15,11 @@
         <div class="flash error">{{ msg }}</div>
     {% endif %}
 
-    <!-- Create User Form -->
-    <details style="margin-bottom:2rem;">
+    <details>
         <summary role="button" class="outline">Create New User</summary>
-        <article class="form-card" style="margin-top:1rem;">
+        <article class="form-card create-user-form">
             <form method="POST" action="/admin/users">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <div class="form-grid-2">
                     <label>
                         Email
                         <input type="email" name="email" placeholder="user@example.com" required />
@@ -30,7 +29,7 @@
                         <input type="text" name="display_name" placeholder="Full name" required />
                     </label>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                <div class="form-grid-2">
                     <label>
                         Password
                         <input type="password" name="password" placeholder="At least 8 characters" minlength="8" required />
@@ -43,13 +42,13 @@
                         </select>
                     </label>
                 </div>
-                <fieldset style="display:flex; gap:2rem; border:none; padding:0; margin-bottom:1rem;">
-                    <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0;">
-                        <input type="checkbox" name="is_approved" checked style="margin-bottom:0;" />
+                <fieldset class="form-checks">
+                    <label>
+                        <input type="checkbox" name="is_approved" checked />
                         Approved
                     </label>
-                    <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0;">
-                        <input type="checkbox" name="force_password_change" style="margin-bottom:0;" />
+                    <label>
+                        <input type="checkbox" name="force_password_change" />
                         Force password change on login
                     </label>
                 </fieldset>
@@ -87,40 +86,38 @@
                                 <span class="badge inactive">Pending</span>
                             {% endif %}
                         </td>
-                        <td style="white-space:nowrap; font-size:0.82rem; color:var(--pico-muted-color);">
+                        <td class="date-cell">
                             {{ user.created_at.format("%Y-%m-%d %H:%M") }}
                         </td>
-                        <td style="white-space:nowrap;">
+                        <td class="actions-cell">
                             <a href="/admin/users/{{ user.id }}/edit"
-                               role="button" class="outline"
-                               style="padding:0.3em 0.7em; font-size:0.8rem; text-decoration:none;">
+                               role="button" class="outline">
                                 Edit
                             </a>
                             {% if !user.is_approved %}
-                                <form method="POST" action="/admin/users/{{ user.id }}/approve" style="display:inline;">
-                                    <button type="submit" class="outline" style="padding:0.3em 0.7em; font-size:0.8rem;">
+                                <form method="POST" action="/admin/users/{{ user.id }}/approve">
+                                    <button type="submit" class="outline">
                                         Approve
                                     </button>
                                 </form>
                             {% endif %}
                             {% if user.role == "user" %}
-                                <form method="POST" action="/admin/users/{{ user.id }}/role" style="display:inline;">
+                                <form method="POST" action="/admin/users/{{ user.id }}/role">
                                     <input type="hidden" name="role" value="admin" />
-                                    <button type="submit" class="outline" style="padding:0.3em 0.7em; font-size:0.8rem;">
+                                    <button type="submit" class="outline">
                                         Promote
                                     </button>
                                 </form>
                             {% else if user.role == "admin" %}
-                                <form method="POST" action="/admin/users/{{ user.id }}/role" style="display:inline;">
+                                <form method="POST" action="/admin/users/{{ user.id }}/role">
                                     <input type="hidden" name="role" value="user" />
-                                    <button type="submit" class="outline" style="padding:0.3em 0.7em; font-size:0.8rem;">
+                                    <button type="submit" class="outline">
                                         Demote
                                     </button>
                                 </form>
                             {% endif %}
                             <form method="POST" action="/admin/users/{{ user.id }}/delete"
-                                  style="display:inline;"
-                                  onsubmit="return confirm('Delete this user? Their links and pages will become unowned.');">
+                                  data-confirm="Delete this user? Their links and pages will become unowned.">
                                 <button type="submit" class="delete-btn">Delete</button>
                             </form>
                         </td>

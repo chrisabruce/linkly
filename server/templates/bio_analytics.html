@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Analytics — {{ analytics.page.display_name }}{% endblock %}
 {% block content %}
-    <p style="margin-bottom:0.25rem;">
+    <p class="back-link">
         <a href="/admin/bio">← Back to Links Pages</a>
     </p>
-    <hgroup style="margin-bottom:1.5rem;">
-        <h2 style="margin-bottom:0.25rem;">{{ analytics.page.display_name }}</h2>
-        <p style="margin:0;">
+    <hgroup class="link-header">
+        <h2>{{ analytics.page.display_name }}</h2>
+        <p>
             <a class="short-link" href="/{{ analytics.page.slug }}" target="_blank" rel="noopener">{{ base_url }}/{{ analytics.page.slug }}</a>
         </p>
     </hgroup>
 
-    <!-- ── Stat cards ──────────────────────────────────────────────────────── -->
     <div class="stat-grid">
         <div class="stat-card">
             <div class="stat-value">{{ analytics.total_views }}</div>
@@ -31,13 +30,11 @@
         </div>
     </div>
 
-    <!-- ── Breakdown cards ─────────────────────────────────────────────────── -->
     <div class="breakdown-grid">
-        <!-- Link clicks breakdown -->
         <div class="breakdown-card">
             <h4>Clicks per Link</h4>
             {% if analytics.link_click_counts.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No links yet.</p>
+                <p class="empty-state-inline">No links yet.</p>
             {% else %}
                 {% for lc in analytics.link_click_counts %}
                     <div class="bar-row">
@@ -51,11 +48,10 @@
             {% endif %}
         </div>
 
-        <!-- Browsers -->
         <div class="breakdown-card">
             <h4>Browsers</h4>
             {% if top_browsers.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+                <p class="empty-state-inline">No data yet.</p>
             {% else %}
                 {% for (name, count, pct) in top_browsers %}
                     <div class="bar-row">
@@ -69,11 +65,10 @@
             {% endif %}
         </div>
 
-        <!-- Devices -->
         <div class="breakdown-card">
             <h4>Devices</h4>
             {% if top_devices.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No data yet.</p>
+                <p class="empty-state-inline">No data yet.</p>
             {% else %}
                 {% for (name, count, pct) in top_devices %}
                     <div class="bar-row">
@@ -87,11 +82,10 @@
             {% endif %}
         </div>
 
-        <!-- Top Referrers -->
         <div class="breakdown-card">
             <h4>Top Referrers</h4>
             {% if top_referers.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No referrer data yet.</p>
+                <p class="empty-state-inline">No referrer data yet.</p>
             {% else %}
                 {% for (name, count, pct) in top_referers %}
                     <div class="bar-row">
@@ -105,11 +99,10 @@
             {% endif %}
         </div>
 
-        <!-- Countries -->
         <div class="breakdown-card">
             <h4>Countries</h4>
             {% if top_countries.is_empty() %}
-                <p style="color:var(--pico-muted-color);font-size:0.85rem;">No location data yet.</p>
+                <p class="empty-state-inline">No location data yet.</p>
             {% else %}
                 {% for (name, count, pct) in top_countries %}
                     <div class="bar-row">
@@ -124,15 +117,14 @@
         </div>
     </div>
 
-    <!-- ── Recent page views table ─────────────────────────────────────────── -->
-    <h3 style="margin-bottom:1rem;">
+    <h3 class="section-title">
         Recent Page Views
-        <small style="font-weight:400; font-size:0.8rem; color:var(--pico-muted-color);">
+        <small class="section-subtitle">
             (most recent {{ analytics.views.len() }} events)
         </small>
     </h3>
     {% if analytics.views.is_empty() %}
-        <p style="color:var(--pico-muted-color); text-align:center; padding:3rem 0;">No page views yet.</p>
+        <p class="empty-state">No page views yet.</p>
     {% else %}
         <div class="table-scroll">
             <table class="clicks-table">
@@ -155,7 +147,7 @@
                                 {% if let Some(ip) = view.ip_address %}
                                     {{ ip }}
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
+                                    <span class="placeholder">—</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -163,7 +155,7 @@
                                 {% let has_region  = view.region.is_some() %}
                                 {% let has_city    = view.city.is_some() %}
                                 {% if has_country || has_region || has_city %}
-                                    <span style="font-size:0.82rem;">
+                                    <span class="location-text">
                                         {% if let Some(city) = view.city %}
                                             {{ city }}{% if has_region || has_country %},{% endif %}
                                         {% endif %}
@@ -175,23 +167,23 @@
                                         {% endif %}
                                     </span>
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">—</span>
+                                    <span class="placeholder">—</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if let Some(b) = view.browser %}{{ b }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
+                                {% if let Some(b) = view.browser %}{{ b }}{% else %}<span class="placeholder">—</span>{% endif %}
                             </td>
                             <td>
-                                {% if let Some(o) = view.os %}{{ o }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
+                                {% if let Some(o) = view.os %}{{ o }}{% else %}<span class="placeholder">—</span>{% endif %}
                             </td>
                             <td>
-                                {% if let Some(d) = view.device_type %}{{ d }}{% else %}<span style="color:var(--pico-muted-color);">—</span>{% endif %}
+                                {% if let Some(d) = view.device_type %}{{ d }}{% else %}<span class="placeholder">—</span>{% endif %}
                             </td>
                             <td class="url-cell">
                                 {% if let Some(r) = view.referer %}
                                     <span title="{{ r }}">{{ r }}</span>
                                 {% else %}
-                                    <span style="color:var(--pico-muted-color);">direct</span>
+                                    <span class="placeholder">direct</span>
                                 {% endif %}
                             </td>
                         </tr>

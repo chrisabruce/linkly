@@ -5,6 +5,27 @@ use crate::{
 use chrono::NaiveDateTime;
 use sqlx::SqlitePool;
 
+type LinkStatsRow = (
+    i64,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    NaiveDateTime,
+    bool,
+    i64,
+    Option<i64>,
+);
+
+type ClickActivityRow = (
+    Option<String>,
+    String,
+    NaiveDateTime,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 const LINK_COLUMNS: &str =
     "id, short_code, original_url, title, description, created_at, is_active, user_id";
 
@@ -51,12 +72,10 @@ pub async fn create_link(
     .await?
     .last_insert_rowid();
 
-    let link: Link = sqlx::query_as(&format!(
-        "SELECT {LINK_COLUMNS} FROM links WHERE id = ?1"
-    ))
-    .bind(id)
-    .fetch_one(pool)
-    .await?;
+    let link: Link = sqlx::query_as(&format!("SELECT {LINK_COLUMNS} FROM links WHERE id = ?1"))
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
 
     Ok(link)
 }
@@ -96,10 +115,7 @@ pub async fn get_all_links_with_stats(
          ORDER BY l.created_at DESC"
     );
 
-    let rows: Vec<(
-        i64, String, String, Option<String>, Option<String>,
-        NaiveDateTime, bool, i64, Option<i64>,
-    )> = if let Some(uid) = bind_val {
+    let rows: Vec<LinkStatsRow> = if let Some(uid) = bind_val {
         sqlx::query_as(&sql).bind(uid).fetch_all(pool).await?
     } else {
         sqlx::query_as(&sql).fetch_all(pool).await?
@@ -107,22 +123,40 @@ pub async fn get_all_links_with_stats(
 
     Ok(rows
         .into_iter()
-        .map(|(id, short_code, original_url, title, description, created_at, is_active, click_count, user_id)| {
-            LinkWithStats {
-                id, short_code, original_url, title, description, created_at, is_active, click_count, user_id,
-            }
-        })
+        .map(
+            |(
+                id,
+                short_code,
+                original_url,
+                title,
+                description,
+                created_at,
+                is_active,
+                click_count,
+                user_id,
+            )| {
+                LinkWithStats {
+                    id,
+                    short_code,
+                    original_url,
+                    title,
+                    description,
+                    created_at,
+                    is_active,
+                    click_count,
+                    user_id,
+                }
+            },
+        )
         .collect())
 }
 
 /// Fetch a single link by its primary key (any status).
 pub async fn get_link_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Link>, sqlx::Error> {
-    sqlx::query_as(&format!(
-        "SELECT {LINK_COLUMNS} FROM links WHERE id = ?1"
-    ))
-    .bind(id)
-    .fetch_optional(pool)
-    .await
+    sqlx::query_as(&format!("SELECT {LINK_COLUMNS} FROM links WHERE id = ?1"))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
 }
 
 /// Permanently delete a link (cascades to clicks via FK).
@@ -176,7 +210,10 @@ pub async fn log_click(
 }
 
 /// Count total short links, optionally filtered by user.
-pub async fn count_links(pool: &SqlitePool, user_id_filter: Option<i64>) -> Result<i64, sqlx::Error> {
+pub async fn count_links(
+    pool: &SqlitePool,
+    user_id_filter: Option<i64>,
+) -> Result<i64, sqlx::Error> {
     match user_id_filter {
         Some(uid) => {
             let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM links WHERE user_id = ?1")
@@ -195,7 +232,10 @@ pub async fn count_links(pool: &SqlitePool, user_id_filter: Option<i64>) -> Resu
 }
 
 /// Count total short link clicks, optionally filtered by user.
-pub async fn count_total_clicks(pool: &SqlitePool, user_id_filter: Option<i64>) -> Result<i64, sqlx::Error> {
+pub async fn count_total_clicks(
+    pool: &SqlitePool,
+    user_id_filter: Option<i64>,
+) -> Result<i64, sqlx::Error> {
     match user_id_filter {
         Some(uid) => {
             let (count,): (i64,) = sqlx::query_as(
@@ -237,22 +277,43 @@ pub async fn top_links_by_clicks(
          LIMIT ?1"
     );
 
-    let rows: Vec<(
-        i64, String, String, Option<String>, Option<String>,
-        NaiveDateTime, bool, i64, Option<i64>,
-    )> = if let Some(uid) = bind_uid {
-        sqlx::query_as(&sql).bind(limit).bind(uid).fetch_all(pool).await?
+    let rows: Vec<LinkStatsRow> = if let Some(uid) = bind_uid {
+        sqlx::query_as(&sql)
+            .bind(limit)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
     } else {
         sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
     };
 
     Ok(rows
         .into_iter()
-        .map(|(id, short_code, original_url, title, description, created_at, is_active, click_count, user_id)| {
-            LinkWithStats {
-                id, short_code, original_url, title, description, created_at, is_active, click_count, user_id,
-            }
-        })
+        .map(
+            |(
+                id,
+                short_code,
+                original_url,
+                title,
+                description,
+                created_at,
+                is_active,
+                click_count,
+                user_id,
+            )| {
+                LinkWithStats {
+                    id,
+                    short_code,
+                    original_url,
+                    title,
+                    description,
+                    created_at,
+                    is_active,
+                    click_count,
+                    user_id,
+                }
+            },
+        )
         .collect())
 }
 
@@ -261,8 +322,16 @@ pub async fn recent_clicks_with_labels(
     pool: &SqlitePool,
     limit: i64,
     user_id_filter: Option<i64>,
-) -> Result<Vec<(String, NaiveDateTime, Option<String>, Option<String>, Option<String>)>, sqlx::Error>
-{
+) -> Result<
+    Vec<(
+        String,
+        NaiveDateTime,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )>,
+    sqlx::Error,
+> {
     let (where_clause, bind_uid) = match user_id_filter {
         Some(uid) => ("WHERE l.user_id = ?2", Some(uid)),
         None => ("", None),
@@ -277,12 +346,15 @@ pub async fn recent_clicks_with_labels(
          LIMIT ?1"
     );
 
-    let rows: Vec<(Option<String>, String, NaiveDateTime, Option<String>, Option<String>, Option<String>)> =
-        if let Some(uid) = bind_uid {
-            sqlx::query_as(&sql).bind(limit).bind(uid).fetch_all(pool).await?
-        } else {
-            sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
-        };
+    let rows: Vec<ClickActivityRow> = if let Some(uid) = bind_uid {
+        sqlx::query_as(&sql)
+            .bind(limit)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
+    } else {
+        sqlx::query_as(&sql).bind(limit).fetch_all(pool).await?
+    };
 
     Ok(rows
         .into_iter()

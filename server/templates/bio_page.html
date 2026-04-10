@@ -10,6 +10,9 @@
     {% if let Some(img) = page.page.profile_image_url %}
         <meta property="og:image" content="{{ img }}" />
     {% endif %}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Nunito:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
         /* ── Reset ─────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,21 +38,27 @@
             padding: 2rem 0;
         }
         .bio-avatar {
-            width: 96px;
-            height: 96px;
+            width: 104px;
+            height: 104px;
             border-radius: 50%;
             object-fit: cover;
+            animation: avatarIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .bio-name {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 700;
             text-align: center;
             line-height: 1.2;
+            letter-spacing: -0.02em;
+            animation: fadeUp 500ms ease both;
+            animation-delay: 100ms;
         }
         .bio-text {
             text-align: center;
             max-width: 480px;
             line-height: 1.6;
+            animation: fadeUp 500ms ease both;
+            animation-delay: 150ms;
         }
         .bio-email {
             display: inline-flex;
@@ -57,7 +66,11 @@
             gap: 0.4rem;
             text-decoration: none;
             font-size: 0.9rem;
+            transition: opacity 0.2s ease;
+            animation: fadeUp 500ms ease both;
+            animation-delay: 200ms;
         }
+        .bio-email:hover { opacity: 0.7; }
         .bio-email svg {
             width: 18px;
             height: 18px;
@@ -76,10 +89,23 @@
             text-decoration: none;
             text-align: center;
             font-weight: 500;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease;
+            animation: linkSlideIn 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
+        .bio-link:nth-child(1) { animation-delay: 200ms; }
+        .bio-link:nth-child(2) { animation-delay: 260ms; }
+        .bio-link:nth-child(3) { animation-delay: 320ms; }
+        .bio-link:nth-child(4) { animation-delay: 380ms; }
+        .bio-link:nth-child(5) { animation-delay: 440ms; }
+        .bio-link:nth-child(6) { animation-delay: 500ms; }
+        .bio-link:nth-child(7) { animation-delay: 560ms; }
+        .bio-link:nth-child(8) { animation-delay: 620ms; }
+        .bio-link:nth-child(n+9) { animation-delay: 680ms; }
         .bio-link:hover {
-            transform: translateY(-2px);
+            transform: translateY(-3px) scale(1.01);
+        }
+        .bio-link:active {
+            transform: translateY(0) scale(0.99);
         }
         .bio-social-links {
             display: flex;
@@ -87,83 +113,126 @@
             gap: 0.75rem;
             justify-content: center;
             padding-top: 0.5rem;
+            animation: fadeUp 500ms ease both;
+            animation-delay: 400ms;
         }
         .bio-social-link {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
             text-decoration: none;
-            transition: transform 0.15s ease;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
         }
-        .bio-social-link:hover { transform: scale(1.15); }
+        .bio-social-link:hover { transform: scale(1.15) translateY(-2px); }
+        .bio-social-link:active { transform: scale(1.05); }
         .bio-social-link svg { width: 22px; height: 22px; }
+
+        /* ── Animations ─────────────────────────────────── */
+        @keyframes avatarIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes linkSlideIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
 
         /* ── TEMPLATE: minimal ─────────────────────────── */
         .template-minimal {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             color: #1a1a1a;
         }
-        .template-minimal .bio-name { color: #1a1a1a; }
+        .template-minimal .bio-name { color: #111; }
         .template-minimal .bio-text { color: #555; font-size: 0.95rem; }
+        .template-minimal .bio-avatar {
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+        }
         .template-minimal .bio-link {
-            background: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            background: #f7f7f8;
+            border: 1px solid #e8e8ec;
+            border-radius: 10px;
             color: #1a1a1a;
             font-size: 0.95rem;
+            font-weight: 500;
         }
         .template-minimal .bio-link:hover {
-            background: #eaeaea;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: #f0f0f2;
+            border-color: #d0d0d8;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
         }
-        .template-minimal .bio-social-link { color: #555; border-radius: 50%; }
-        .template-minimal .bio-social-link:hover { color: #1a1a1a; }
+        .template-minimal .bio-social-link {
+            color: #666;
+            border-radius: 50%;
+            background: #f0f0f2;
+        }
+        .template-minimal .bio-social-link:hover { color: #111; background: #e4e4e8; }
         .template-minimal .bio-email { color: #555; }
-        .template-minimal .bio-email:hover { color: #1a1a1a; }
+        .template-minimal .bio-email:hover { color: #111; }
 
         /* ── TEMPLATE: bold ────────────────────────────── */
-        body.template-bold { background-color: #1a1a2e; }
+        body.template-bold { background-color: #0f0f1a; }
         .template-bold {
-            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
             color: #ffffff;
         }
-        .template-bold .bio-name { color: #ffffff; font-size: 2rem; }
-        .template-bold .bio-text { color: #a0a0a0; font-size: 1rem; }
+        .template-bold .bio-name {
+            color: #ffffff;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+        .template-bold .bio-text { color: #8a8a9a; font-size: 1rem; }
+        .template-bold .bio-avatar {
+            border: 3px solid rgba(255,51,102,0.4);
+            box-shadow: 0 0 24px rgba(255,51,102,0.2);
+        }
         .template-bold .bio-link {
-            background: #ff3366;
+            background: linear-gradient(135deg, #ff3366 0%, #ff1a53 100%);
             border: none;
-            border-radius: 12px;
+            border-radius: 14px;
             color: #ffffff;
             font-size: 1rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.01em;
         }
         .template-bold .bio-link:hover {
-            background: #ff1a53;
-            box-shadow: 0 4px 20px rgba(255,51,102,0.4);
+            box-shadow: 0 6px 28px rgba(255,51,102,0.35);
         }
         .template-bold .bio-social-link {
             color: #ffffff;
-            background: #222;
+            background: rgba(255,255,255,0.08);
             border-radius: 50%;
-            width: 44px; height: 44px;
         }
-        .template-bold .bio-social-link:hover { background: #ff3366; }
-        .template-bold .bio-email { color: #a0a0a0; }
+        .template-bold .bio-social-link:hover {
+            background: #ff3366;
+            box-shadow: 0 4px 16px rgba(255,51,102,0.3);
+        }
+        .template-bold .bio-email { color: #8a8a9a; }
         .template-bold .bio-email:hover { color: #ff3366; }
 
         /* ── TEMPLATE: rounded ─────────────────────────── */
         .template-rounded {
-            font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
             color: #333;
         }
-        .template-rounded .bio-name { color: #333; }
+        .template-rounded .bio-name { color: #2a2a2a; font-weight: 700; }
         .template-rounded .bio-text { color: #666; }
         .template-rounded .bio-avatar {
             border: 4px solid #fff;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
         }
         .template-rounded .bio-link {
             background: #ffffff;
@@ -171,107 +240,524 @@
             border-radius: 999px;
             color: #333;
             font-size: 0.95rem;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
         }
         .template-rounded .bio-link:hover {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            transform: translateY(-3px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
         }
         .template-rounded .bio-social-link {
-            color: #666;
+            color: #888;
             background: #ffffff;
             border-radius: 50%;
-            width: 44px; height: 44px;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
-        .template-rounded .bio-social-link:hover { color: #e91e63; }
+        .template-rounded .bio-social-link:hover {
+            color: #e91e63;
+            box-shadow: 0 4px 16px rgba(233,30,99,0.15);
+        }
         .template-rounded .bio-email { color: #666; }
 
         /* ── TEMPLATE: glass ───────────────────────────── */
-        body.template-glass { background-color: #2d1b69; }
+        body.template-glass { background-color: #1a0e3e; }
         .template-glass {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             color: #ffffff;
         }
         .template-glass .bio-container {
-            background: rgba(255,255,255,0.12);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 24px;
-            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 28px;
+            border: 1px solid rgba(255,255,255,0.12);
             padding: 2.5rem 2rem;
             margin-top: 2rem;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.2);
         }
-        .template-glass .bio-name { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        .template-glass .bio-text { color: rgba(255,255,255,0.85); }
+        .template-glass .bio-name {
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .template-glass .bio-text { color: rgba(255,255,255,0.75); }
         .template-glass .bio-avatar {
-            border: 3px solid rgba(255,255,255,0.4);
+            border: 3px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         .template-glass .bio-link {
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
             color: #ffffff;
+            font-weight: 500;
         }
         .template-glass .bio-link:hover {
-            background: rgba(255,255,255,0.25);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.25);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
         }
         .template-glass .bio-social-link {
-            color: rgba(255,255,255,0.8);
-            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.08);
             border-radius: 50%;
-            width: 44px; height: 44px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
         .template-glass .bio-social-link:hover {
             color: #ffffff;
-            background: rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.25);
         }
-        .template-glass .bio-email { color: rgba(255,255,255,0.8); }
+        .template-glass .bio-email { color: rgba(255,255,255,0.7); }
         .template-glass .bio-email:hover { color: #ffffff; }
 
         /* ── TEMPLATE: neon ────────────────────────────── */
-        body.template-neon { background-color: #0a0a0a; }
+        body.template-neon { background-color: #060608; }
         .template-neon {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
             color: #e0e0e0;
         }
         .template-neon .bio-name {
             color: #00ff88;
-            text-shadow: 0 0 10px rgba(0,255,136,0.5), 0 0 40px rgba(0,255,136,0.2);
+            text-shadow: 0 0 12px rgba(0,255,136,0.5), 0 0 48px rgba(0,255,136,0.15);
+            letter-spacing: -0.02em;
         }
-        .template-neon .bio-text { color: #888; }
+        .template-neon .bio-text { color: #6a6a7a; font-size: 0.9rem; }
         .template-neon .bio-avatar {
             border: 2px solid #00ff88;
-            box-shadow: 0 0 15px rgba(0,255,136,0.3);
+            box-shadow: 0 0 20px rgba(0,255,136,0.25), 0 0 60px rgba(0,255,136,0.08);
         }
         .template-neon .bio-link {
             background: transparent;
-            border: 1px solid #00ff88;
+            border: 1px solid rgba(0,255,136,0.4);
             border-radius: 4px;
             color: #00ff88;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            box-shadow: 0 0 8px rgba(0,255,136,0.15), inset 0 0 8px rgba(0,255,136,0.05);
+            letter-spacing: 0.06em;
+            font-weight: 500;
+            box-shadow: 0 0 12px rgba(0,255,136,0.08), inset 0 0 12px rgba(0,255,136,0.03);
         }
         .template-neon .bio-link:hover {
-            background: rgba(0,255,136,0.1);
-            box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 20px rgba(0,255,136,0.1);
+            background: rgba(0,255,136,0.08);
+            border-color: #00ff88;
+            box-shadow: 0 0 24px rgba(0,255,136,0.3), inset 0 0 24px rgba(0,255,136,0.06);
             text-shadow: 0 0 8px rgba(0,255,136,0.5);
         }
         .template-neon .bio-social-link {
             color: #00ff88;
-            border: 1px solid rgba(0,255,136,0.3);
+            border: 1px solid rgba(0,255,136,0.25);
             border-radius: 4px;
-            width: 40px; height: 40px;
         }
         .template-neon .bio-social-link:hover {
-            box-shadow: 0 0 12px rgba(0,255,136,0.4);
+            box-shadow: 0 0 16px rgba(0,255,136,0.35);
+            background: rgba(0,255,136,0.08);
             color: #ffffff;
         }
-        .template-neon .bio-email { color: #00ff88; font-family: inherit; font-size: 0.85rem; }
+        .template-neon .bio-email {
+            color: #00ff88;
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+
+        /* ── TEMPLATE: pebble ──────────────────────────── */
+        /* Soft pastel gradient, white pill buttons, the classic link-in-bio look */
+        body.template-pebble {
+            background: linear-gradient(145deg, #e0c3fc 0%, #8ec5fc 50%, #d5f0c1 100%);
+            background-attachment: fixed;
+        }
+        .template-pebble {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #2d2d3a;
+        }
+        .template-pebble .bio-name {
+            color: #1a1a2e;
+            font-weight: 700;
+        }
+        .template-pebble .bio-text { color: #555568; font-size: 0.95rem; }
+        .template-pebble .bio-avatar {
+            border: 4px solid rgba(255,255,255,0.8);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+        }
+        .template-pebble .bio-link {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(8px);
+            border: none;
+            border-radius: 999px;
+            color: #2d2d3a;
+            font-size: 0.95rem;
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .template-pebble .bio-link:hover {
+            background: #ffffff;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .template-pebble .bio-social-link {
+            color: #555568;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+        }
+        .template-pebble .bio-social-link:hover {
+            color: #1a1a2e;
+            background: #ffffff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+        .template-pebble .bio-email { color: #555568; }
+        .template-pebble .bio-email:hover { color: #1a1a2e; }
+
+        /* ── TEMPLATE: sunset ──────────────────────────── */
+        /* Warm gradient sky, frosted cards, golden hour vibes */
+        body.template-sunset {
+            background: linear-gradient(160deg, #ffecd2 0%, #fcb69f 30%, #ee9ca7 60%, #c3a3d9 100%);
+            background-attachment: fixed;
+        }
+        .template-sunset {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #3d2c2c;
+        }
+        .template-sunset .bio-name {
+            color: #2a1a1a;
+            font-weight: 700;
+        }
+        .template-sunset .bio-text { color: #6b4f4f; font-size: 0.95rem; }
+        .template-sunset .bio-avatar {
+            border: 4px solid rgba(255,255,255,0.7);
+            box-shadow: 0 4px 20px rgba(180,100,80,0.15);
+        }
+        .template-sunset .bio-link {
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 14px;
+            color: #3d2c2c;
+            font-weight: 600;
+        }
+        .template-sunset .bio-link:hover {
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 8px 28px rgba(180,100,80,0.12);
+        }
+        .template-sunset .bio-social-link {
+            color: #6b4f4f;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+        }
+        .template-sunset .bio-social-link:hover {
+            color: #2a1a1a;
+            background: rgba(255,255,255,0.8);
+        }
+        .template-sunset .bio-email { color: #6b4f4f; }
+        .template-sunset .bio-email:hover { color: #2a1a1a; }
+
+        /* ── TEMPLATE: mono ────────────────────────────── */
+        /* Pure black & white editorial, stark and bold */
+        body.template-mono { background-color: #ffffff; }
+        .template-mono {
+            font-family: 'DM Sans', 'Georgia', serif;
+            color: #000000;
+        }
+        .template-mono .bio-name {
+            color: #000;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+        }
+        .template-mono .bio-text {
+            color: #444;
+            font-size: 0.95rem;
+        }
+        .template-mono .bio-avatar {
+            border: 3px solid #000;
+        }
+        .template-mono .bio-link {
+            background: #000000;
+            border: none;
+            border-radius: 0;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .template-mono .bio-link:hover {
+            background: #222;
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.15);
+        }
+        .template-mono .bio-social-link {
+            color: #000;
+            border: 2px solid #000;
+            border-radius: 0;
+        }
+        .template-mono .bio-social-link:hover {
+            background: #000;
+            color: #fff;
+        }
+        .template-mono .bio-email { color: #000; }
+
+        /* ── TEMPLATE: cyber ───────────────────────────── */
+        /* Dark futuristic with cyan/electric accents */
+        body.template-cyber {
+            background-color: #0a0a14;
+            background-image:
+                radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,200,255,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 30% at 80% 100%, rgba(120,0,255,0.06) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        .template-cyber {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #c8d6e5;
+        }
+        .template-cyber .bio-name {
+            color: #00d4ff;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 20px rgba(0,212,255,0.3);
+        }
+        .template-cyber .bio-text { color: #7a8a9a; font-size: 0.95rem; }
+        .template-cyber .bio-avatar {
+            border: 2px solid rgba(0,212,255,0.5);
+            box-shadow: 0 0 24px rgba(0,212,255,0.15);
+        }
+        .template-cyber .bio-link {
+            background: rgba(0,212,255,0.06);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 8px;
+            color: #e0eaf4;
+            font-weight: 500;
+        }
+        .template-cyber .bio-link:hover {
+            background: rgba(0,212,255,0.12);
+            border-color: rgba(0,212,255,0.5);
+            box-shadow: 0 0 24px rgba(0,212,255,0.12), inset 0 0 24px rgba(0,212,255,0.04);
+        }
+        .template-cyber .bio-social-link {
+            color: #7a8a9a;
+            background: rgba(0,212,255,0.06);
+            border: 1px solid rgba(0,212,255,0.15);
+            border-radius: 8px;
+        }
+        .template-cyber .bio-social-link:hover {
+            color: #00d4ff;
+            border-color: rgba(0,212,255,0.4);
+            box-shadow: 0 0 16px rgba(0,212,255,0.15);
+        }
+        .template-cyber .bio-email { color: #00d4ff; }
+
+        /* ── TEMPLATE: candy ───────────────────────────── */
+        /* Playful, bright, chunky buttons, high energy */
+        body.template-candy {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 30%, #a1c4fd 60%, #c2e9fb 100%);
+            background-attachment: fixed;
+        }
+        .template-candy {
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #2a2a4a;
+        }
+        .template-candy .bio-name {
+            color: #1a1a3a;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .template-candy .bio-text { color: #4a4a6a; }
+        .template-candy .bio-avatar {
+            border: 5px solid #fff;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+        }
+        .template-candy .bio-link {
+            background: #ffffff;
+            border: 3px solid #1a1a3a;
+            border-radius: 16px;
+            color: #1a1a3a;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: 4px 4px 0 #1a1a3a;
+        }
+        .template-candy .bio-link:hover {
+            transform: translateY(-3px) translateX(-1px);
+            box-shadow: 6px 6px 0 #1a1a3a;
+        }
+        .template-candy .bio-link:active {
+            transform: translateY(1px) translateX(1px);
+            box-shadow: 2px 2px 0 #1a1a3a;
+        }
+        .template-candy .bio-link:nth-child(odd) {
+            background: #ffeaa7;
+        }
+        .template-candy .bio-link:nth-child(even) {
+            background: #dfe6e9;
+        }
+        .template-candy .bio-link:nth-child(3n) {
+            background: #fab1a0;
+        }
+        .template-candy .bio-social-link {
+            color: #1a1a3a;
+            background: #ffffff;
+            border: 2px solid #1a1a3a;
+            border-radius: 50%;
+            box-shadow: 2px 2px 0 #1a1a3a;
+        }
+        .template-candy .bio-social-link:hover {
+            transform: scale(1.15) translateY(-2px);
+            box-shadow: 3px 3px 0 #1a1a3a;
+        }
+        .template-candy .bio-email { color: #1a1a3a; font-weight: 600; }
+
+        /* ── TEMPLATE: leaf ─────────────────────────────── */
+        /* Deep forest greens, organic, nature-inspired */
+        body.template-leaf {
+            background-color: #0d1f12;
+            background-image:
+                radial-gradient(ellipse 60% 50% at 30% 10%, rgba(34,139,34,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 70% 90%, rgba(85,170,85,0.08) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+        .template-leaf {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #d4e6d4;
+        }
+        .template-leaf .bio-name {
+            color: #8ece8e;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .template-leaf .bio-text { color: #8aa88a; font-size: 0.95rem; }
+        .template-leaf .bio-avatar {
+            border: 3px solid rgba(120,180,120,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .template-leaf .bio-link {
+            background: rgba(120,180,120,0.08);
+            border: 1px solid rgba(120,180,120,0.2);
+            border-radius: 12px;
+            color: #c8e0c8;
+            font-weight: 500;
+        }
+        .template-leaf .bio-link:hover {
+            background: rgba(120,180,120,0.15);
+            border-color: rgba(120,180,120,0.4);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .template-leaf .bio-social-link {
+            color: #8aa88a;
+            background: rgba(120,180,120,0.08);
+            border: 1px solid rgba(120,180,120,0.15);
+            border-radius: 50%;
+        }
+        .template-leaf .bio-social-link:hover {
+            color: #8ece8e;
+            background: rgba(120,180,120,0.18);
+            border-color: rgba(120,180,120,0.35);
+        }
+        .template-leaf .bio-email { color: #8ece8e; }
+
+        /* ── TEMPLATE: iris ─────────────────────────────── */
+        /* Soft lavender, dreamy, ethereal, light purple aesthetic */
+        body.template-iris {
+            background: linear-gradient(170deg, #f3e8ff 0%, #e9d5ff 40%, #ddd6fe 70%, #c4b5fd 100%);
+            background-attachment: fixed;
+        }
+        .template-iris {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #3b2e5a;
+        }
+        .template-iris .bio-name {
+            color: #2e1a4a;
+            font-weight: 700;
+        }
+        .template-iris .bio-text { color: #6b5b8a; font-size: 0.95rem; }
+        .template-iris .bio-avatar {
+            border: 4px solid rgba(255,255,255,0.9);
+            box-shadow: 0 4px 24px rgba(100,50,150,0.12);
+        }
+        .template-iris .bio-link {
+            background: rgba(255,255,255,0.65);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 14px;
+            color: #3b2e5a;
+            font-weight: 600;
+        }
+        .template-iris .bio-link:hover {
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 8px 28px rgba(100,50,150,0.1);
+        }
+        .template-iris .bio-social-link {
+            color: #6b5b8a;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+        }
+        .template-iris .bio-social-link:hover {
+            color: #2e1a4a;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 4px 16px rgba(100,50,150,0.1);
+        }
+        .template-iris .bio-email { color: #6b5b8a; }
+        .template-iris .bio-email:hover { color: #2e1a4a; }
+
+        /* ── TEMPLATE: brutalist ────────────────────────── */
+        /* Raw, concrete, thick borders, anti-design, monospace */
+        body.template-brutalist { background-color: #d4d4d4; }
+        .template-brutalist {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            color: #111;
+        }
+        .template-brutalist .bio-container {
+            max-width: 600px;
+        }
+        .template-brutalist .bio-name {
+            color: #000;
+            font-size: 2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .template-brutalist .bio-text {
+            color: #333;
+            font-size: 0.85rem;
+            line-height: 1.7;
+        }
+        .template-brutalist .bio-avatar {
+            border: 4px solid #000;
+            border-radius: 0;
+        }
+        .template-brutalist .bio-link {
+            background: #fff;
+            border: 3px solid #000;
+            border-radius: 0;
+            color: #000;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            box-shadow: 5px 5px 0 #000;
+        }
+        .template-brutalist .bio-link:hover {
+            background: #000;
+            color: #fff;
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0 #000;
+        }
+        .template-brutalist .bio-link:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #000;
+        }
+        .template-brutalist .bio-social-link {
+            color: #000;
+            border: 3px solid #000;
+            border-radius: 0;
+            box-shadow: 3px 3px 0 #000;
+        }
+        .template-brutalist .bio-social-link:hover {
+            background: #000;
+            color: #fff;
+            transform: scale(1.1) translate(-1px, -1px);
+            box-shadow: 4px 4px 0 #000;
+        }
+        .template-brutalist .bio-email {
+            color: #000;
+            font-family: inherit;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
     </style>
     {% if !page.page.custom_css.is_empty() %}
         <style>{{ page.page.custom_css|safe }}</style>

@@ -15,13 +15,13 @@ use std::sync::Arc;
 /// JWT claims embedded in the auth token.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: i64,     // user ID
+    pub sub: i64, // user ID
     pub email: String,
     pub role: String, // "admin" or "user"
     pub exp: usize,   // expiry (Unix timestamp)
     pub iat: usize,   // issued at
     #[serde(default)] // backward compat with tokens issued before this field existed
-    pub fpc: bool,    // force password change
+    pub fpc: bool, // force password change
 }
 
 /// Create a signed JWT for the given user.

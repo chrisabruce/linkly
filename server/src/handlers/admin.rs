@@ -1,11 +1,8 @@
 use crate::{
     auth::{self, AuthUser},
-    db,
-    db_bio,
-    db_users,
+    db, db_bio, db_users,
     models::{AnalyticsSummary, BioPageWithClicks, LinkWithStats, User},
-    password,
-    AppState,
+    password, AppState,
 };
 use askama::Template;
 use axum::{
@@ -170,7 +167,11 @@ pub async fn login_page(jar: CookieJar, State(state): State<Arc<AppState>>) -> R
             return Redirect::to("/admin/dashboard").into_response();
         }
     }
-    LoginTemplate { error: None, app_title: state.config.app_title.clone() }.into_response()
+    LoginTemplate {
+        error: None,
+        app_title: state.config.app_title.clone(),
+    }
+    .into_response()
 }
 
 /// POST /admin/login
@@ -264,11 +265,12 @@ pub async fn logout(jar: CookieJar) -> Response {
 // ── Change Password ───────────────────────────────────────────────────────
 
 /// GET /admin/change-password
-pub async fn change_password_page(
-    _auth: AuthUser,
-    State(state): State<Arc<AppState>>,
-) -> Response {
-    ChangePasswordTemplate { error: None, app_title: state.config.app_title.clone() }.into_response()
+pub async fn change_password_page(_auth: AuthUser, State(state): State<Arc<AppState>>) -> Response {
+    ChangePasswordTemplate {
+        error: None,
+        app_title: state.config.app_title.clone(),
+    }
+    .into_response()
 }
 
 /// POST /admin/change-password
@@ -308,7 +310,11 @@ pub async fn change_password(
 
     // Update password in DB (also clears force_password_change)
     if let Err(e) = db_users::update_user_password(&state.db, auth.user_id, &hash).await {
-        tracing::error!("Failed to update password for user {}: {:?}", auth.user_id, e);
+        tracing::error!(
+            "Failed to update password for user {}: {:?}",
+            auth.user_id,
+            e
+        );
         return ChangePasswordTemplate {
             error: Some("Failed to update password.".into()),
             app_title: state.config.app_title.clone(),
@@ -329,7 +335,9 @@ pub async fn change_password(
         Err(e) => {
             tracing::error!("Failed to create JWT after password change: {:?}", e);
             return ChangePasswordTemplate {
-                error: Some("Password changed but failed to refresh session. Please log in again.".into()),
+                error: Some(
+                    "Password changed but failed to refresh session. Please log in again.".into(),
+                ),
                 app_title: state.config.app_title.clone(),
             }
             .into_response();
@@ -396,39 +404,70 @@ pub async fn update_profile(
 
     // Validate
     if email.is_empty() || !email.contains('@') {
-        return set_flash_and_redirect(jar, None, Some("Please enter a valid email address."), "/admin/profile");
+        return set_flash_and_redirect(
+            jar,
+            None,
+            Some("Please enter a valid email address."),
+            "/admin/profile",
+        );
     }
     if display_name.is_empty() {
-        return set_flash_and_redirect(jar, None, Some("Display name is required."), "/admin/profile");
+        return set_flash_and_redirect(
+            jar,
+            None,
+            Some("Display name is required."),
+            "/admin/profile",
+        );
     }
 
     // Check for duplicate email (if changed)
     if email != auth.email {
         match db_users::get_user_by_email(&state.db, &email).await {
             Ok(Some(_)) => {
-                return set_flash_and_redirect(jar, None, Some("That email is already in use by another account."), "/admin/profile");
+                return set_flash_and_redirect(
+                    jar,
+                    None,
+                    Some("That email is already in use by another account."),
+                    "/admin/profile",
+                );
             }
             Err(e) => {
                 tracing::error!("DB error checking email: {:?}", e);
-                return set_flash_and_redirect(jar, None, Some("Internal error. Please try again."), "/admin/profile");
+                return set_flash_and_redirect(
+                    jar,
+                    None,
+                    Some("Internal error. Please try again."),
+                    "/admin/profile",
+                );
             }
             Ok(None) => {}
         }
     }
 
     // Handle password change if requested
-    let new_password = form.new_password.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let new_password = form
+        .new_password
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     if let Some(new_pass) = new_password {
         // Require current password
         let current = form.current_password.as_deref().unwrap_or("");
         if current.is_empty() {
-            return set_flash_and_redirect(jar, None, Some("Current password is required to set a new password."), "/admin/profile");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("Current password is required to set a new password."),
+                "/admin/profile",
+            );
         }
 
         // Verify current password
         let user = match db_users::get_user_by_id(&state.db, auth.user_id).await {
             Ok(Some(u)) => u,
-            _ => return set_flash_and_redirect(jar, None, Some("Internal error."), "/admin/profile"),
+            _ => {
+                return set_flash_and_redirect(jar, None, Some("Internal error."), "/admin/profile")
+            }
         };
         let hash = user.password_hash.clone();
         let pass = current.to_owned();
@@ -436,32 +475,61 @@ pub async fn update_profile(
             .await
             .unwrap_or(false);
         if !valid {
-            return set_flash_and_redirect(jar, None, Some("Current password is incorrect."), "/admin/profile");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("Current password is incorrect."),
+                "/admin/profile",
+            );
         }
 
         // Validate new password
         if new_pass.len() < 8 {
-            return set_flash_and_redirect(jar, None, Some("New password must be at least 8 characters."), "/admin/profile");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("New password must be at least 8 characters."),
+                "/admin/profile",
+            );
         }
         let confirm = form.new_password_confirm.as_deref().unwrap_or("");
         if new_pass != confirm {
-            return set_flash_and_redirect(jar, None, Some("New passwords do not match."), "/admin/profile");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("New passwords do not match."),
+                "/admin/profile",
+            );
         }
 
         // Hash and update
         let pass = new_pass.to_owned();
         let hash = match tokio::task::spawn_blocking(move || password::hash_password(&pass)).await {
             Ok(Ok(h)) => h,
-            _ => return set_flash_and_redirect(jar, None, Some("Internal error hashing password."), "/admin/profile"),
+            _ => {
+                return set_flash_and_redirect(
+                    jar,
+                    None,
+                    Some("Internal error hashing password."),
+                    "/admin/profile",
+                )
+            }
         };
         if let Err(e) = db_users::update_user_password(&state.db, auth.user_id, &hash).await {
             tracing::error!("Failed to update password: {:?}", e);
-            return set_flash_and_redirect(jar, None, Some("Failed to update password."), "/admin/profile");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("Failed to update password."),
+                "/admin/profile",
+            );
         }
     }
 
     // Update profile fields
-    if let Err(e) = db_users::update_user_profile(&state.db, auth.user_id, &email, &display_name).await {
+    if let Err(e) =
+        db_users::update_user_profile(&state.db, auth.user_id, &email, &display_name).await
+    {
         tracing::error!("Failed to update profile: {:?}", e);
         let msg = if e.to_string().contains("UNIQUE") {
             "That email is already in use by another account."
@@ -484,7 +552,12 @@ pub async fn update_profile(
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("Failed to reissue JWT after profile update: {:?}", e);
-                return set_flash_and_redirect(jar, Some("Profile updated, but session refresh failed. Please log in again."), None, "/admin/profile");
+                return set_flash_and_redirect(
+                    jar,
+                    Some("Profile updated, but session refresh failed. Please log in again."),
+                    None,
+                    "/admin/profile",
+                );
             }
         };
         let cookie = Cookie::build(("auth_token", token))
@@ -495,7 +568,12 @@ pub async fn update_profile(
                 state.config.session_duration_hours as i64 * 3600,
             ))
             .build();
-        return set_flash_and_redirect(jar.add(cookie), Some("Profile updated."), None, "/admin/profile");
+        return set_flash_and_redirect(
+            jar.add(cookie),
+            Some("Profile updated."),
+            None,
+            "/admin/profile",
+        );
     }
 
     set_flash_and_redirect(jar, Some("Profile updated."), None, "/admin/profile")
@@ -511,7 +589,11 @@ pub async fn register_page(jar: CookieJar, State(state): State<Arc<AppState>>) -
             return Redirect::to("/admin/dashboard").into_response();
         }
     }
-    RegisterTemplate { error: None, app_title: state.config.app_title.clone() }.into_response()
+    RegisterTemplate {
+        error: None,
+        app_title: state.config.app_title.clone(),
+    }
+    .into_response()
 }
 
 /// POST /admin/register
@@ -594,7 +676,17 @@ pub async fn register(
         ("user", false)
     };
 
-    match db_users::create_user(&state.db, &email, &display_name, &hash, role, is_approved, false).await {
+    match db_users::create_user(
+        &state.db,
+        &email,
+        &display_name,
+        &hash,
+        role,
+        is_approved,
+        false,
+    )
+    .await
+    {
         Ok(user) => {
             if is_approved {
                 // Auto-login for first user (admin)
@@ -619,7 +711,10 @@ pub async fn register(
             }
             // Normal user — show success message on login page
             LoginTemplate {
-                error: Some("Account created! An admin must approve your account before you can log in.".into()),
+                error: Some(
+                    "Account created! An admin must approve your account before you can log in."
+                        .into(),
+                ),
                 app_title: state.config.app_title.clone(),
             }
             .into_response()
@@ -643,22 +738,37 @@ pub async fn register(
 // ── Dashboard (analytics overview) ─────────────────────────────────────────
 
 /// GET /admin/dashboard
-pub async fn dashboard(
-    auth: AuthUser,
-    State(state): State<Arc<AppState>>,
-) -> Response {
-    let user_filter = if auth.is_admin() { None } else { Some(auth.user_id) };
+pub async fn dashboard(auth: AuthUser, State(state): State<Arc<AppState>>) -> Response {
+    let user_filter = if auth.is_admin() {
+        None
+    } else {
+        Some(auth.user_id)
+    };
 
     let total_short_links = db::count_links(&state.db, user_filter).await.unwrap_or(0);
-    let total_short_link_clicks = db::count_total_clicks(&state.db, user_filter).await.unwrap_or(0);
-    let total_bio_pages = db_bio::count_bio_pages(&state.db, user_filter).await.unwrap_or(0);
-    let total_bio_link_clicks = db_bio::count_total_bio_link_clicks(&state.db, user_filter).await.unwrap_or(0);
+    let total_short_link_clicks = db::count_total_clicks(&state.db, user_filter)
+        .await
+        .unwrap_or(0);
+    let total_bio_pages = db_bio::count_bio_pages(&state.db, user_filter)
+        .await
+        .unwrap_or(0);
+    let total_bio_link_clicks = db_bio::count_total_bio_link_clicks(&state.db, user_filter)
+        .await
+        .unwrap_or(0);
 
-    let top_short_links = db::top_links_by_clicks(&state.db, 10, user_filter).await.unwrap_or_default();
-    let top_bio_pages = db_bio::top_bio_pages_by_clicks(&state.db, 10, user_filter).await.unwrap_or_default();
+    let top_short_links = db::top_links_by_clicks(&state.db, 10, user_filter)
+        .await
+        .unwrap_or_default();
+    let top_bio_pages = db_bio::top_bio_pages_by_clicks(&state.db, 10, user_filter)
+        .await
+        .unwrap_or_default();
 
-    let recent_short = db::recent_clicks_with_labels(&state.db, 20, user_filter).await.unwrap_or_default();
-    let recent_bio = db_bio::recent_bio_link_clicks(&state.db, 20, user_filter).await.unwrap_or_default();
+    let recent_short = db::recent_clicks_with_labels(&state.db, 20, user_filter)
+        .await
+        .unwrap_or_default();
+    let recent_bio = db_bio::recent_bio_link_clicks(&state.db, 20, user_filter)
+        .await
+        .unwrap_or_default();
 
     // Merge recent activity into a single sorted list
     let mut recent_activity: Vec<RecentActivityRow> = Vec::new();
@@ -728,7 +838,11 @@ pub async fn short_links(
         .max_age(time::Duration::seconds(0))
         .build();
 
-    let user_filter = if auth.is_admin() { None } else { Some(auth.user_id) };
+    let user_filter = if auth.is_admin() {
+        None
+    } else {
+        Some(auth.user_id)
+    };
 
     let links = match db::get_all_links_with_stats(&state.db, user_filter).await {
         Ok(l) => l,
@@ -811,7 +925,11 @@ pub async fn create_link(
                 }
                 Ok(false) => {}
                 Err(e) => {
-                    tracing::error!("DB error checking bio slug collision for '{}': {:?}", code, e);
+                    tracing::error!(
+                        "DB error checking bio slug collision for '{}': {:?}",
+                        code,
+                        e
+                    );
                 }
             }
             code.to_owned()
@@ -881,7 +999,12 @@ pub async fn delete_link(
     let link = match db::get_link_by_id(&state.db, id).await {
         Ok(Some(l)) => l,
         Ok(None) => {
-            return set_flash_and_redirect(jar, None, Some("Link not found."), "/admin/short-links");
+            return set_flash_and_redirect(
+                jar,
+                None,
+                Some("Link not found."),
+                "/admin/short-links",
+            );
         }
         Err(e) => {
             tracing::error!("Failed to fetch link {}: {:?}", id, e);
@@ -909,7 +1032,9 @@ pub async fn delete_link(
                 "/admin/short-links",
             )
         }
-        Ok(false) => set_flash_and_redirect(jar, None, Some("Link not found."), "/admin/short-links"),
+        Ok(false) => {
+            set_flash_and_redirect(jar, None, Some("Link not found."), "/admin/short-links")
+        }
         Err(e) => {
             tracing::error!("Failed to delete link {}: {:?}", id, e);
             set_flash_and_redirect(
@@ -1004,7 +1129,8 @@ pub async fn validate_code(
 ) -> impl IntoResponse {
     // Datastar sends signals as JSON in a single `datastar` query param:
     // ?datastar={"customcode":"value"}
-    let code = q.datastar
+    let code = q
+        .datastar
         .as_deref()
         .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
         .and_then(|v| v.get("customcode")?.as_str().map(String::from))
@@ -1024,7 +1150,10 @@ pub async fn validate_code(
         r#"<span id="code-validation" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); font-size:1.1rem; pointer-events:none; color:#16a34a;">&#10003;</span>"#.to_string()
     };
 
-    tracing::info!("validate_code responding with fragment: {}", &fragment[..fragment.len().min(80)]);
+    tracing::info!(
+        "validate_code responding with fragment: {}",
+        &fragment[..fragment.len().min(80)]
+    );
     datastar_patch(fragment)
 }
 
@@ -1032,11 +1161,11 @@ pub async fn validate_code(
 
 /// Build a Datastar SSE `datastar-patch-elements` response from an HTML fragment.
 /// Sends a single SSE event and closes the stream (no keep-alive).
-fn datastar_patch(fragment: String) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
+fn datastar_patch(
+    fragment: String,
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
     let data = format!("elements {}", fragment);
-    let event = Event::default()
-        .event("datastar-patch-elements")
-        .data(data);
+    let event = Event::default().event("datastar-patch-elements").data(data);
     Sse::new(tokio_stream::once(Ok(event)))
 }
 
